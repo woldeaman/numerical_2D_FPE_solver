@@ -210,11 +210,11 @@ def optimization(iterator, DRange, F, bnds, dim, cc, tt):
 
 def main():
     # reading profiles
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/DiffusionModel/'
-            'Skin/Results/ExpData/')
-    cc = np.array([readData(path+'10min.txt'),
-                   readData(path+'100min.txt'),
-                   readData(path+'1000min.txt')], dtype=float)
+    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/DiffusionModel/'
+    #         'Skin/Results/ExpData/')
+    cc = np.array([readData('10min.txt'),
+                   readData('100min.txt'),
+                   readData('1000min.txt')], dtype=float)
     N = cc[1, :].size  # number of bins
     cc0 = np.append(1, np.zeros(N-1))  # initial concentration profile
     cc = np.insert(cc, 0, cc0, axis=0)
@@ -225,14 +225,14 @@ def main():
     bndsF = np.ones(N)*20
     bnds = (np.zeros(2*N), np.concatenate((bndsD, bndsF)))
 
-    DInit = np.linspace(0, 100, num=512)
+    DInit = np.linspace(0, 100, num=4)
     FInit = 5
     parallel = ft.partial(optimization, DRange=DInit, F=FInit,
                           bnds=bnds, dim=N, cc=cc, tt=tt)
 
     # parallelized code **let's hope it works**
-    proc = Pool(processes=64)
-    for i in proc.imap_unordered(parallel, range(512)):
+    proc = Pool(processes=4)
+    for i in proc.imap_unordered(parallel, range(4)):
         print('#%s: Time elapsed is %s s' % (i, time.time() - startTime))
     proc.close()
 
