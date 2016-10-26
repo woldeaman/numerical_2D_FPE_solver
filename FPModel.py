@@ -32,6 +32,10 @@ def WMatrix(d, f):
 
     return W.T  # check code wether to use W.T or W
 
+    '''
+    add condition for open end modeling: W[0,0] = - W[0,1] - W[2,1]
+    '''
+
 
 # generally define error functional E
 # additional verbose and debug modi
@@ -43,6 +47,7 @@ def resFun(d, f, dim, cc, tt, debug=False, verb=False):
     '''
 
     W = WMatrix(d, f)
+    T =
 
     M = cc[:, 1].size  # number of concentration profiles
 
