@@ -20,6 +20,7 @@ startTime = time.time()
 # working with flags for debug or verbose mode
 ''' Acceptance of flags needs further refinemend '''
 
+plot = False
 debugging = False
 verbose = True
 # if len(sys.argv) > 1:
@@ -113,12 +114,16 @@ def WMatrix(i, j, d, f, dim):
 
 
 # generally define error functional E
-def resFun(d, f, dim, cc, tt):
+def resFun(df, dim, cc, tt):
     '''
     cc and tt arrays with concentration profiles cc[i,:]
     for time tt[i] and tt[j] > tt[i] if j > i
     were cc is 2D array with cc.shape = (number of samples, number of bins)
     '''
+
+    # extracting diffusivity and free energy from single vector input
+    d = df[0:dim]
+    f = df[dim:2*dim]
 
     W = np.array([[WMatrix(i, j, d, f, dim)
                    for i in range(dim)] for j in range(dim)])
@@ -181,13 +186,11 @@ def resFun(d, f, dim, cc, tt):
 
 # Optimization process for different initial Values
 # outsourced for parallelization
-def optimization(iterator, DRange, F, bnds, dim, cc, tt):
+def parallelOptimization(iterator, DRange, F, bnds, dim, cc, tt):
 
-    def EMin(df):
-        # function only depends on D and F
-        # --> optimization with regard to D and F
-        EM = resFun(df[0:dim], df[dim:2*dim], dim, cc, tt)
-        return EM
+    # function only depends on D and F
+    # --> optimization with regard to D and F
+    EMin = ft.partial(resFun, dim=dim, cc=cc, tt=tt)
 
     initVal = np.append(np.ones(dim)*DRange[iterator], np.ones(dim)*F)
     # running 5x50 with varied starting points based on initVal
@@ -232,28 +235,28 @@ def main():
 
     DInit = np.linspace(0, 100, num=4)
     FInit = 5
-    parallel = ft.partial(optimization, DRange=DInit, F=FInit,
-                          bnds=bnds, dim=N, cc=cc, tt=tt)
 
     # linear code
 
-
     # parallelized code
+    parallel = ft.partial(parallelOptimization, DRange=DInit, F=FInit,
+                          bnds=bnds, dim=N, cc=cc, tt=tt)
     proc = Pool(processes=4)
     for i in proc.imap_unordered(parallel, range(4)):
         print('#%s: Time elapsed is %s s' % (i, time.time() - startTime))
     proc.close()
 
-    # plotting concentration profiles
-    # plt.axis([0, 600, 0, 15])
-    # plt.ion()
-    #
-    # for i in range(1, M):
-    #     plt.plot(xx, cc[i, :])
-    #     plt.pause(0.05)
-    #
-    # while True:
-    #     plt.pause(0.05)
+    # plotting concentration profiles for different times
+    if plot:
+        plt.axis([0, 600, 0, 15])
+        plt.ion()
+
+        for i in range(1, M):
+            plt.plot(xx, cc[i, :])
+            plt.pause(0.05)
+
+            while True:
+                plt.pause(0.05)
 
 if __name__ == "__main__":
     main()
