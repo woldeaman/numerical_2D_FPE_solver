@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import csv
+from matplotlib import pyplot as plt
 
 
 # reading data
-def readData(path, sep=','):
+def readData(path, sep=',', typo=float):
     '''
     Function reads data from delimited file in the path location,
     in which is columns are separated by sep and
@@ -29,4 +30,29 @@ def readData(path, sep=','):
         else:
             data = np.array([row[0] for row in reader])
 
-    return data  # returns np array
+    return data.astype(typo)  # returns np array
+
+
+# plotting concentration profiles for different times
+def plotCon(cc, xx=None, live=True):
+    '''
+    Plotting concentration profiles, live if wanted
+    '''
+
+    # if no x vector is given just plot cc
+    if xx is None:
+        xx = np.array(range(cc[1, :].size))
+
+    CMax = np.max(cc)
+    XMax = np.max(xx)
+
+    if live:
+        plt.axis([0, XMax, 0, CMax])
+        plt.ion()
+
+        for i in range(cc[:, 1]):
+            plt.plot(xx, cc[i, :])
+            plt.pause(0.05)
+
+            while True:
+                plt.pause(0.05)
