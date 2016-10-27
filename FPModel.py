@@ -2,11 +2,13 @@
 import numpy as np
 import scipy.linalg as al
 import scipy.special as sp
+import functools as ft
+import scipy.optimize as op
 import sys
 
 
-# define rate matrix recursively
-# i = row index, j = column index
+# definition of rate matrix
+# with reflective BCs
 def WMatrix(d, f, deltaX=1):
     '''
     Calculates entries of rate matrix W with rank F.size
@@ -40,7 +42,7 @@ def WMatrix(d, f, deltaX=1):
 
 # generally define error functional E
 # additional verbose and debug modi
-def resFun(df, cc, tt, debug=False, verb=False):
+def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
     '''
     cc and tt arrays with concentration profiles cc[:,i]
     for time tt[i] and tt[j] > tt[i] if j > i
@@ -54,7 +56,7 @@ def resFun(df, cc, tt, debug=False, verb=False):
     f = df[dim:2*dim]
 
     # calculating W and T matrix
-    W = WMatrix(d, f)
+    W = WMatrix(d, f, deltaX)
     T = al.expm(W)
 
     # check for detailed balance and conservation of concentration
@@ -113,3 +115,38 @@ def resFun(df, cc, tt, debug=False, verb=False):
         print(E)
 
     return RRn
+
+
+# extra function for parallelization
+def optimization(iterator, cc, tt, DRange, FRange, bnds, deltaX=1,
+                 debug=False, verb=False):
+
+    dim = cc[:, 0].size
+    optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX,
+                          debug=debug, verb=verb)
+
+    initVal = np.append(np.ones(dim)*DRange[iterator], np.ones(dim)*FRange)
+
+    # running 5x50 with varied starting points based on initVal
+    DValStart = initVal[0]
+    for l in range(5):
+        result = op.least_squares(optimize, initVal, bounds=bnds,
+                                  max_nfev=50, tr_solver='lsmr')
+        initVal = result.x
+
+    result = op.least_squares(optimize, initVal, bounds=bnds, tr_solver='lsmr')
+
+    # saving data from result
+    values = open('info_%s.csv' % iterator, 'w')
+    values.write('#, DValue, EValue, #OfEvaluations, Message\n')
+    values.write(str(iterator)+', ' + str(DValStart) + ', ' +
+                 str(result.cost) + ', ' + str(result.nfev) +
+                 ', ' + result.message+'\n')
+    values.close()
+
+    D = result.x[:dim]
+    F = result.x[dim:]
+    np.savetxt('D_%s.txt' % iterator, D, delimiter=', ')
+    np.savetxt('F_%s.txt' % iterator, F, delimiter=', ')
+
+    return iterator
