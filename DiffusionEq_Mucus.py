@@ -7,9 +7,12 @@ import time
 import functools as ft
 import inputOutput as io
 import FPModel as fp
-import scipy.optimize as op
+from multiprocessing import Pool
 
 startTime = time.time()
+parallel = False
+debug = False
+verbose = True
 
 
 def main():
@@ -19,55 +22,46 @@ def main():
 
     # reading profiles
     path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
-            'Skin/Results/ExpData/')
-    cc = np.array([io.readData(path+'10min.txt'),
-                   io.readData(path+'100min.txt'),
-                   io.readData(path+'1000min.txt')]).T
+            'Mucus/Ch1_Positive.csv')
+
+    data = io.readData(path)
+    xx = data[:, 0]
+    # only taken 3 samples and remove half of elements due to size
+    cc = np.array([data[:, 1], data[:, 61], data[:, 91]]).T
+    xx = np.delete(xx, np.arange(0, xx.size, 2))
+    cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
+    deltaX = abs(xx[0] - xx[1])
 
     N = cc[:, 0].size  # number of bins
-    cc0 = np.append(1, np.zeros(N-1))  # initial concentration profile
-    cc = np.insert(cc, 0, cc0, axis=1)
-    tt = np.array([0, 600, 6000, 60000])  # t in seconds
+    # cc0 = np.append(1, np.zeros(N-1))  # initial concentration profile
+    # cc = np.insert(cc, 0, cc0, axis=1)
+    tt = np.array([0, 600, 900])  # t in seconds
 
     # setting bounds, D first and F second
     bndsD = np.ones(N)*np.inf
     bndsF = np.ones(N)*20
     bnds = (np.zeros(2*N), np.concatenate((bndsD, bndsF)))
 
-    # function with one argument (combined d and f) to optimize
-    optimize = ft.partial(fp.resFun, cc=cc, tt=tt, debug=True, verb=True)
-
-    ###########################
-    # linear implementation
-    ###########################
     # setting initial conditions
     DInit = np.linspace(0, 100, num=4)
     FInit = 5
 
-    for i in range(DInit.size):
-        initVal = np.append(np.ones(N)*DInit[i], np.ones(N)*FInit)
-        # running 5x50 with varied starting points based on initVal
-        DValStart = initVal[0]
-        for l in range(5):
-            result = op.least_squares(optimize, initVal, bounds=bnds,
-                                      max_nfev=50, tr_solver='lsmr')
-            initVal = result.x
+    # function with one argument (combined d and f) to optimize
+    optimize = ft.partial(fp.optimization, cc=cc, tt=tt, deltaX=deltaX,
+                          DRange=DInit, FRange=FInit, bnds=bnds, debug=debug,
+                          verb=verbose)
 
-        result = op.least_squares(optimize, initVal,
-                                  bounds=bnds, tr_solver='lsmr')
-
-        # saving data from result
-        values = open('info_%s.csv' % i, 'w')
-        values.write('#, DValue, EValue, #OfEvaluations, Message\n')
-        values.write(str(i)+', ' + str(DValStart) + ', ' +
-                     str(result.cost) + ', ' + str(result.nfev) +
-                     ', ' + result.message+'\n')
-        values.close()
-        D = result.x[:N]
-        F = result.x[N:]
-        np.savetxt('D_%s.txt' % i, D, delimiter=', ')
-        np.savetxt('F_%s.txt' % i, F, delimiter=', ')
-
+    ###########################
+    # linear and parallel implementation
+    ###########################
+    if parallel:
+        proc = Pool(processes=4)
+        for i in proc.imap_unordered(optimize, range(4)):
+            print('#%s: Time elapsed is %s s' % (i, time.time() - startTime))
+        proc.close()
+    else:
+        for i in range(DInit.size):
+            optimize(i)
 
 if __name__ == "__main__":
     main()
