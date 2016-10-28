@@ -10,8 +10,8 @@ import FPModel as fp
 from multiprocessing import Pool
 
 startTime = time.time()
-parallel = False
-debug = False
+parallel = True
+debug = True
 verbose = True
 
 
@@ -22,34 +22,40 @@ def main():
 
     # reading profiles
     path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
-            'Mucus/Ch1_Positive.csv')
+            'Skin/Results/ExpData/')
 
-    data = io.readData(path)
-    xx = data[:, 0]
-    # only taken 3 samples and remove half of elements due to size
-    cc = np.array([data[:, 1], data[:, 61], data[:, 91]]).T
-    xx = np.delete(xx, np.arange(0, xx.size, 2))
-    cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
-    deltaX = abs(xx[0] - xx[1])
+    # data = io.readData(path)
+    # xx = data[:, 0]
+    # # only taken 3 samples and remove half of elements due to size
+    # cc = np.array([data[:, 1], data[:, 61], data[:, 91]]).T
+    # xx = np.delete(xx, np.arange(0, xx.size, 2))
+    # cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
+    # deltaX = abs(xx[0] - xx[1])
+    deltaX = 1
+
+    cc = np.array([io.readData(path+'10min.txt'),
+                   io.readData(path+'100min.txt'),
+                   io.readData(path+'1000min.txt')]).T
 
     N = cc[:, 0].size  # number of bins
-    # cc0 = np.append(1, np.zeros(N-1))  # initial concentration profile
-    # cc = np.insert(cc, 0, cc0, axis=1)
-    tt = np.array([0, 600, 900])  # t in seconds
+    cc0 = np.append(1, np.zeros(N-1))  # initial concentration profile
+    cc = np.insert(cc, 0, cc0, axis=1)
+    tt = np.array([0, 600, 6000, 60000])  # t in seconds
+    # tt = np.array([0, 600, 900])  # t in seconds
 
     # setting bounds, D first and F second
     bndsD = np.ones(N)*np.inf
     bndsF = np.ones(N)*20
-    bnds = (np.zeros(2*N), np.concatenate((bndsD, bndsF)))
+    bnds = (np.zeros(2*(N)), np.concatenate((bndsD, bndsF)))
 
     # setting initial conditions
-    DInit = np.linspace(0, 100, num=4)
+    DInit = np.linspace(5, 100, num=4)
     FInit = 5
 
     # function with one argument (combined d and f) to optimize
     optimize = ft.partial(fp.optimization, cc=cc, tt=tt, deltaX=deltaX,
-                          DRange=DInit, FRange=FInit, bnds=bnds, debug=debug,
-                          verb=verbose)
+                          bc='reflective', DRange=DInit, FRange=FInit,
+                          bnds=bnds, debug=debug, verb=verbose)
 
     ###########################
     # linear and parallel implementation

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import scipy.linalg as al
+import numpy.linalg as la
 import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
@@ -8,8 +9,9 @@ import sys
 
 
 # definition of rate matrix
-# with reflective BCs
-def WMatrix(d, f, deltaX=1):
+# with reflective BCs or one sided open BCs
+# in case of open BCs df0 contains d and f for leftmost bin outside domain
+def WMatrix(d, f, deltaX=1, bc='reflective', df0=None):
     '''
     Calculates entries of rate matrix W with rank F.size
     definition in R. Schulz, PNAS, 2016
@@ -24,39 +26,48 @@ def WMatrix(d, f, deltaX=1):
     # computing off-diagonals (dimensionless)
     DiagUp = DUp/(2*(deltaX)**2) * np.exp(-FUp/2)
     DiagDown = DDown/(2*(deltaX)**2) * np.exp(-FDown/2)
-    DiagUp[-1] = 0  # reflective bc's
-    DiagDown[0] = 0
+
+    if bc == 'reflective':
+        DiagUp[-1] = 0  # reflective bc's
+        DiagDown[0] = 0
+
+    if bc == 'open1side':
+        DiagUp[-1] = 0
+        DiagDown[0] = (d[0]+df0[0])/(2*(deltaX)**2) * np.exp(-(f[0]-df0[1])/2)
 
     # main diagonal is negative sum of off-diagonals
-    DiagMain = -(DiagUp + DiagDown)
+    DiagMain = -(np.roll(DiagDown, -1) + np.roll(DiagUp, 1))
 
     # constructing W Matrix from diagonal entries
     W = np.diag(DiagMain) + np.diag(DiagUp[:-1], 1) + np.diag(DiagDown[1:], -1)
 
-    return W.T  # check code wether to use W.T or W
-
-    '''
-    add condition for open end modeling: W[0,0] = - W[0,1] - W[2,1]
-    '''
+    return W
 
 
 # generally define error functional E
 # additional verbose and debug modi
-def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
+def resFun(df, cc, tt, deltaX=1, debug=False, verb=False, bc='reflective'):
     '''
     cc and tt arrays with concentration profiles cc[:,i]
     for time tt[i] and tt[j] > tt[i] if j > i
     were cc is 2D array with cc.shape = (number of samples, number of bins)
     '''
     M = cc[1, :].size  # number of concentration profiles
-    dim = cc[:, 1].size  # number of bins
+    N = cc[:, 1].size  # number of bins
 
     # gathering D and F
-    d = df[0:dim]
-    f = df[dim:2*dim]
+    if bc == 'open1side':
+        d = df[1:N+1]
+        f = df[N+2:]
+        df0 = np.array([df[0], df[N+1]])
+
+    else:
+        d = df[:N]
+        f = df[N:]
+        df0 = None
 
     # calculating W and T matrix
-    W = WMatrix(d, f, deltaX)
+    W = WMatrix(d, f, deltaX, bc, df0)
     T = al.expm(W)
 
     # check for detailed balance and conservation of concentration
@@ -76,35 +87,35 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
             sys.exit()
 
         con = np.average(np.sum(cc, 0))
-        if np.any(np.sum(cc, 0)-con > 0.1*con):  # max 10% deviation from avg
+        # max 10% deviation from avg
+        if np.any(abs(np.sum(cc, 0)-con) > 0.1*con):
             print('Error: Concentration is not conserved in profiles: ',
-                  np.nonzero(np.sum(cc, 0)-con > 0.1*con))
+                  np.nonzero(abs(np.sum(cc, 0)-con) > 0.1*con))
             print(np.sum(cc, 0))
             sys.exit()
 
         # compute profiles from c0 and
         # do the same conservation check
-        deltaT = tt[0] - tt[1]  # for constant deltaT only
-        ccComp = np.array([np.dot(T**(deltaT*i), cc[:, 0])
-                           for i in range(M)])
+        ccComp = np.array([np.dot(la.matrix_power(T, (tt[i]-tt[i-1])),
+                                  cc[:, 0]) for i in range(1, M)]).T
 
-        if np.any(np.sum(ccComp, 0)-con > 0.1*con):
+        if np.any(abs(np.sum(ccComp, 0)-con) > 0.1*con):
             print('Error: Computed concentration '
                   'is not conserved in profiles: ',
-                  np.nonzero(np.sum(ccComp, 0)-con > 0.1*con))
+                  np.nonzero(abs(np.sum(ccComp, 0)-con) > 0.1*con))
             print(np.sum(ccComp, 0))
             sys.exit()
 
     # computing residual vector
     n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
-    RR = np.zeros((dim, n))
+    RR = np.zeros((N, n))
     k = 0
-    T = np.matrix(T)
 
     for j in range(M):
         for i in range(M):
             if j > i:
-                RR[:, k] = cc[:, j] - np.dot(T**(tt[j] - tt[i]), cc[:, i])
+                RR[:, k] = cc[:, j] - np.dot(
+                    la.matrix_power(T, (tt[j] - tt[i])), cc[:, i])
                 k += 1
 
     # calculating norm and functional to minimize
@@ -118,14 +129,19 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
 
 
 # extra function for parallelization
-def optimization(iterator, cc, tt, DRange, FRange, bnds, deltaX=1,
-                 debug=False, verb=False):
+def optimization(iterator, DRange, FRange, cc, tt, bnds, deltaX=1,
+                 bc='reflective', debug=False, verb=False):
 
     dim = cc[:, 0].size
-    optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX,
+    optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, bc=bc,
                           debug=debug, verb=verb)
 
-    initVal = np.append(np.ones(dim)*DRange[iterator], np.ones(dim)*FRange)
+    if bc == 'reflective':
+        initVal = np.append(np.ones(dim)*DRange[iterator], np.ones(dim)*FRange)
+
+    if bc == 'open1side':
+        initVal = np.append(np.ones(dim+1)*DRange[iterator],
+                            np.ones(dim+1)*FRange)
 
     # running 5x50 with varied starting points based on initVal
     DValStart = initVal[0]
@@ -144,8 +160,14 @@ def optimization(iterator, cc, tt, DRange, FRange, bnds, deltaX=1,
                  ', ' + result.message+'\n')
     values.close()
 
-    D = result.x[:dim]
-    F = result.x[dim:]
+    if bc == 'reflective':
+        D = result.x[:dim]
+        F = result.x[dim:]
+
+    if bc == 'open1side':
+        D = result.x[:dim+1]
+        F = result.x[dim+1:]
+
     np.savetxt('D_%s.txt' % iterator, D, delimiter=', ')
     np.savetxt('F_%s.txt' % iterator, F, delimiter=', ')
 
