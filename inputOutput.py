@@ -34,14 +34,14 @@ def readData(path, sep=',', typo=float):
 
 
 # plotting concentration profiles for different times
-def plotCon(cc, xx=None, live=True):
+def plotCon(cc, xx=None, live=False):
     '''
-    Plotting concentration profiles, live if wanted
+    Plotting concentration profiles, live if wanted for i profiles cc[:,i]
     '''
 
     # if no x vector is given just plot cc
     if xx is None:
-        xx = np.array(range(cc[1, :].size))
+        xx = np.array(range(cc[:, 0].size))
 
     CMax = np.max(cc)
     XMax = np.max(xx)
@@ -50,9 +50,16 @@ def plotCon(cc, xx=None, live=True):
         plt.axis([0, XMax, 0, CMax])
         plt.ion()
 
-        for i in range(cc[:, 1]):
-            plt.plot(xx, cc[i, :])
+        for i in range(cc[0, :].size):
+            plt.plot(xx, cc[:, i])
             plt.pause(0.05)
 
             while True:
                 plt.pause(0.05)
+    else:
+        for i in range(cc[0, :].size):
+            plt.axis([0, XMax, 0, CMax])
+            plt.ylabel('Concentration [µM]')
+            plt.xlabel('Distance [µm]')
+            plt.scatter(xx, cc[:, i])
+            plt.show()
