@@ -1,125 +1,106 @@
 import matplotlib.pyplot as plt
-import csv
 import numpy as np
-from DiffusionEq import WMatrix
 import scipy.linalg as al
+import inputOutput as io
+import FPModel as fp
+import sys
 
 
-# reading data
-def readData(path, sep=','):
-    '''
-    Function reads data from delimited file in the path location,
-    in which is columns are separated by sep and
-    quote lines starting with quote are ignored.
-    - Addable: quotechar and skiplines support
-    '''
-
-    multiCol = False
-    # checking for 2D or 1D array
-    with open(path, 'r') as file:
-        reader = csv.reader(file, delimiter=sep)
-        for row in reader:
-            if len(row) > 1:
-                multiCol = True
-
-    # gathering data
-    with open(path, 'r') as file:
-        reader = csv.reader(file, delimiter=sep)
-        if multiCol:
-            data = np.array([[row[i] for i in range(len(row))]
-                             for row in reader])
-        else:
-            data = np.array([row[0] for row in reader])
-
-    return data  # returns np array
+save = True
 
 
 def main():
-    save = True
     # printing results
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/DiffusionModel/'
-            'Skin/Results/ComputedData/Run4_random/')
+    path = ('/Users/AmanuelWK/Desktop/untitled folder/')
+    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModelling/Mucus/Ch1_Positive.csv')
 
-    # for parallelized version
     # gathering data and sorting according to error
-    # M = 300  # number of runs to go through
-    #
-    # data = np.array([readData(path+'RunInfo/info_%s.csv' % i)[1, :]
-    #                  for i in range(M)], dtype=float)
-    #
-    # DValue, EValue = data[1:, 1], data[1:, 2]
-    # indices = np.argsort(EValue)
+    M = 4  # number of runs to go through
 
-    # for linear version
-    data = readData(path+'info.csv')
-
-    DValue, EValue = data[1:, 1].astype(float), data[1:, 2].astype(float)
+    data = np.array([io.readData(path+'info_%s.csv' % i, typo=str)[1, :-1]
+                     for i in range(M)]).astype(float)
+    DValue, EValue = data[:, 1], data[:, 2]
     indices = np.argsort(EValue)
 
     # Finding Top N runs
-    N = 5
-    F = np.array([readData(path+'DAndF/F_%s.txt' % str(indices[i]+1))
-                  for i in range(N)], dtype=float)
-    D = np.array([readData(path+'DAndF/D_%s.txt' % str(indices[i]+1))
-                  for i in range(N)], dtype=float)
-    cc = readData(path+'cc_1.csv').astype(float)
+    N = 4
+    F = np.array([io.readData(path+'F_%s.txt' % str(indices[i]))
+                  for i in range(N)])
+    D = np.array([io.readData(path+'D_%s.txt' % str(indices[i]))
+                  for i in range(N)])
 
-    dim = len(cc[0, :])
-    x = np.arange(len(cc[0, :]))
-    tt = np.array([0, 600, 6000, 60000])
+    print(D.shape)
+    sys.exit()
 
-    W = np.array([[[WMatrix(i, j, D[k, :], F[k, :], dim) for i in range(dim)]
-                   for j in range(dim)] for k in range(N)])
+    Cdata = io.readData(path2)
+    xx = Cdata[:, 0]
+    deltaX = xx[1] - xx[0]
+    cc = np.array([Cdata[:, 1], Cdata[:, 61], Cdata[:, 91]]).T
+    tt = np.array([0, 600, 900])  # t in seconds
+    dim = cc[:, 0].size
 
-    ccRes = np.array([[np.dot(al.expm((W[i, :, :].T)*tt[0]), cc[0, :]),
-                      np.dot(al.expm((W[i, :, :].T)*tt[1]), cc[0, :]),
-                      np.dot(al.expm((W[i, :, :].T)*tt[2]), cc[0, :]),
-                      np.dot(al.expm((W[i, :, :].T)*tt[3]), cc[0, :])]
-                      for i in range(N)])
+    # gatherin W matrices and calculating concentration profiles
+    W = np.zeros((N, dim, dim))
+    W10 = np.zeros(N)
+    for i in range(N):
+        W[i, :, :], W10[i] = fp.WMatrix(D[i, :], F[i, :],
+                                        deltaX=deltaX, bc='open1side')
+
+    print(W.shape)
+    sys.exit()
+
+    c0 = 4
+    Q = np.linalg.inv(W)  # inverse of W
+    b = np.append(c0*W10, np.zeros(cc[:, 0].size-1))
+    Qb = np.dot(Q, b)
+
+    #ccRes = np.array([np.dot(al.expm(W[i]*tt[0]), cc[:, 0]) + al.expm((W[i, :, :].T)*tt[0])
 
     print('Top %s Runs with minimal error are: \n' % N)
     for i in range(N):
         print('Run #%s with E = %s \n'
-              % (str(indices[i]+1), EValue[indices[i]]))
+              % (str(indices[i]), EValue[indices[i]]))
 
+    #print ('CC shape:', cc.shape, '\n ccRes shape:', ccRes.shape)
     # plotting results
     for i in range(N):
         plt.figure(i)
         plt.plot(D[i, :])
-        plt.title('D_%s' % str(indices[i]+1))
+        plt.title('D_%s' % str(indices[i]))
         if save:
             plt.savefig('/Users/AmanuelWK/Desktop/#%s_D.pdf'
-                        % str(indices[i]+1))
+                        % str(indices[i]))
         plt.show()
 
         plt.figure(i+1)
         plt.plot(F[i, :])
-        plt.title('F_%s' % str(indices[i]+1))
+        plt.title('F_%s' % str(indices[i]))
         if save:
             plt.savefig('/Users/AmanuelWK/Desktop/#%s_F.pdf'
-                        % str(indices[i]+1))
+                        % str(indices[i]))
         plt.show()
 
         plt.figure(i+2)
-        expData0, = plt.plot(x[2:], cc[0, 2:], 'b--', label='0m Experiment')
-        calcData0, = plt.plot(x[2:], ccRes[i, 0, 2:],
+        expData0, = plt.plot(xx, cc[0, :], 'b--', label='0m Experiment')
+        calcData0, = plt.plot(xx, ccRes[i, 0, :],
                               'b-', label='0m Computed')
-        expData1, = plt.plot(x[2:], cc[1, 2:], 'r--', label='10m Experiment')
-        calcData1, = plt.plot(x[2:], ccRes[i, 1, 2:],
+        expData1, = plt.plot(xx, cc[1, :], 'r--', label='10m Experiment')
+        calcData1, = plt.plot(xx, ccRes[i, 1, :],
                               'r-', label='10m Computed')
-        expData2, = plt.plot(x[2:], cc[2, 2:], 'g--', label='100m Experiment')
-        calcData2, = plt.plot(x[2:], ccRes[i, 2, 2:],
-                              'g-', label='100m Computed')
-        expData3, = plt.plot(x[2:], cc[3, 2:], 'k--', label='1000m Experiment')
-        calcData3, = plt.plot(x[2:], ccRes[i, 3, 2:],
-                              'k-', label='1000m Computed')
+        expData2, = plt.plot(xx, cc[2, :], 'g--', label='15m Experiment')
+        calcData2, = plt.plot(xx, ccRes[i, 2, :],
+                              'g-', label='15m Computed')
+        expData3, = plt.plot(xx, cc[3, :], 'k--',
+                             label='15m Experiment')
+        calcData3, = plt.plot(xx, ccRes[i, 3, :],
+                              'k-', label='15m Computed')
 
         plt.title('C-Profiles from run #%s' % (str(indices[i]+1)))
         plt.legend(handles=[expData0, calcData0, expData1, calcData1,
                             expData2, calcData2, expData3, calcData3])
         if save:
             plt.savefig('/Users/AmanuelWK/Desktop/#%s_profiles.pdf'
-                        % str(indices[i]+1))
+                        % str(indices[i]))
         plt.show()
 
 if __name__ == "__main__":

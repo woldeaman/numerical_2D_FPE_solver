@@ -11,7 +11,7 @@ import sys
 # definition of rate matrix
 # with reflective BCs or one sided open BCs
 # in case of open BCs df0 contains d and f for leftmost bin outside domain
-def WMatrix(d, f, deltaX=1, bc='reflective', df0=None):
+def WMatrix(d, f, deltaX=1, bc='reflective'):
     '''
     Calculates entries of rate matrix W with rank F.size
     definition in R. Schulz, PNAS, 2016
@@ -27,47 +27,53 @@ def WMatrix(d, f, deltaX=1, bc='reflective', df0=None):
     DiagUp = DUp/(2*(deltaX)**2) * np.exp(-FUp/2)
     DiagDown = DDown/(2*(deltaX)**2) * np.exp(-FDown/2)
 
-    if bc == 'reflective':
-        DiagUp[-1] = 0  # reflective bc's
-        DiagDown[0] = 0
-
-    if bc == 'open1side':
-        DiagUp[-1] = 0
-        DiagDown[0] = (d[0]+df0[0])/(2*(deltaX)**2) * np.exp(-(f[0]-df0[1])/2)
+    DiagUp[-1] = 0  # reflective bc's
+    DiagDown[0] = 0
 
     # main diagonal is negative sum of off-diagonals
-    DiagMain = -(np.roll(DiagDown, -1) + np.roll(DiagUp, 1))
+    DiagMain = -(np.roll(DiagUp, 1) + np.roll(DiagDown, -1))
 
     # constructing W Matrix from diagonal entries
     W = np.diag(DiagMain) + np.diag(DiagUp[:-1], 1) + np.diag(DiagDown[1:], -1)
 
-    return W
+    # boundary conditions differ only in the part of the matrix we use for
+    # further analysis
+    if bc == 'reflective':
+        return W
+    elif bc == 'open1side':
+        # returning truncated matrix as well as W[1, 0]
+        # which is used for further calculations
+        return [W[1:, 1:], W[1, 0]]
+    else:
+        print('Error: Invalid boundary conditions!')
+        sys.exit()
 
 
 # generally define error functional E
 # additional verbose and debug modi
-def resFun(df, cc, tt, deltaX=1, debug=False, verb=False, bc='reflective'):
+def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
+           debug=False, verb=False):
     '''
     cc and tt arrays with concentration profiles cc[:,i]
     for time tt[i] and tt[j] > tt[i] if j > i
     were cc is 2D array with cc.shape = (number of samples, number of bins)
     '''
-    M = cc[1, :].size  # number of concentration profiles
-    N = cc[:, 1].size  # number of bins
+    M = cc[0, :].size  # number of concentration profiles
+    # number of bins
+    N = cc[:, 0].size
 
     # gathering D and F
-    if bc == 'open1side':
-        d = df[1:N+1]
-        f = df[N+2:]
-        df0 = np.array([df[0], df[N+1]])
+    d = df[:int(df.size/2)]
+    f = df[int(df.size/2):]
 
-    else:
-        d = df[:N]
-        f = df[N:]
-        df0 = None
-
-    # calculating W and T matrix
-    W = WMatrix(d, f, deltaX, bc, df0)
+    # calculating W and T matrix and extra variables for open BCs
+    if bc == 'reflective':
+        W = WMatrix(d, f, deltaX, bc)
+    elif bc == 'open1side':
+        W, W10 = WMatrix(d, f, deltaX, bc)
+        Q = np.linalg.inv(W)  # inverse of W
+        b = np.append(c0*W10, np.zeros(N-1))
+        Qb = np.dot(Q, b)
     T = al.expm(W)
 
     # check for detailed balance and conservation of concentration
@@ -111,12 +117,23 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False, bc='reflective'):
     RR = np.zeros((N, n))
     k = 0
 
-    for j in range(M):
-        for i in range(M):
-            if j > i:
-                RR[:, k] = cc[:, j] - np.dot(
-                    la.matrix_power(T, (tt[j] - tt[i])), cc[:, i])
-                k += 1
+    if bc == 'reflective':
+        for j in range(M):
+            for i in range(M):
+                if j > i:
+                    RR[:, k] = cc[:, j] - np.dot(la.matrix_power(
+                        T, (tt[j] - tt[i])), cc[:, i])
+                    k += 1
+    # check report for residual computation with open boundaries
+    elif bc == 'open1side':
+        for j in range(M):
+            for i in range(M):
+                if j > i:
+                    RR[:, k] = cc[:, j] - np.dot(la.matrix_power(
+                        T, (tt[j] - tt[i])), cc[:, i]) - np.dot(
+                            la.matrix_power(
+                                T, (tt[j] - tt[i])) - np.eye(N), Qb)
+                    k += 1
 
     # calculating norm and functional to minimize
     RRn = np.array([al.norm(RR[:, i]) for i in range(RR[0, :].size)])
@@ -129,17 +146,16 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False, bc='reflective'):
 
 
 # extra function for parallelization
-def optimization(iterator, DRange, FRange, cc, tt, bnds, deltaX=1,
-                 bc='reflective', debug=False, verb=False):
+def optimization(iterator, DRange, FRange, bnds, cc, tt, deltaX=1,
+                 bc='reflective', c0=None, debug=False, verb=False):
 
     dim = cc[:, 0].size
     optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, bc=bc,
-                          debug=debug, verb=verb)
+                          c0=c0, debug=debug, verb=verb)
 
     if bc == 'reflective':
         initVal = np.append(np.ones(dim)*DRange[iterator], np.ones(dim)*FRange)
-
-    if bc == 'open1side':
+    elif bc == 'open1side':
         initVal = np.append(np.ones(dim+1)*DRange[iterator],
                             np.ones(dim+1)*FRange)
 
@@ -150,7 +166,7 @@ def optimization(iterator, DRange, FRange, cc, tt, bnds, deltaX=1,
                                   max_nfev=50, tr_solver='lsmr')
         initVal = result.x
 
-    result = op.least_squares(optimize, initVal, bounds=bnds, tr_solver='lsmr')
+    # result = op.least_squares(optimize, initVal, bounds=bnds, tr_solver='lsmr')
 
     # saving data from result
     values = open('info_%s.csv' % iterator, 'w')
