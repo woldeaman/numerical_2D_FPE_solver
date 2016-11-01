@@ -8,12 +8,11 @@ import functools as ft
 import inputOutput as io
 import FPModel as fp
 from multiprocessing import Pool
-import matplotlib.pyplot as plt
 
 startTime = time.time()
 parallel = True
 conservation = False
-verbose = True
+verbose = False
 
 
 def main():
@@ -40,12 +39,12 @@ def main():
 
     # setting bounds, D first and F second
     bndsD = np.ones(N+1)*np.inf
-    bndsF = np.ones(N+1)*np.inf
+    bndsF = np.ones(N+1)*20
     bnds = (np.zeros(2*(N+1)), np.concatenate((bndsD, bndsF)))
 
     # setting initial conditions
-    DInit = np.linspace(5, 1000, num=4)
-    FInit = 15
+    DInit = np.linspace(1, 1000, num=4)
+    FInit = 10
 
     # function with one argument (combined d and f) to optimize
     optimize = ft.partial(fp.optimization, DRange=DInit, FRange=FInit,
