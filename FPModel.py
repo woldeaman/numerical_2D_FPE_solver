@@ -48,6 +48,10 @@ def WMatrix(d, f, deltaX=1, bc='reflective'):
         print('Error: Invalid boundary conditions!')
         sys.exit()
 
+#def calcC(c0, W, t, bc='reflective', T=None,)
+'''TODO: Define function for calculation of cProfile from W/T matrix
+'''
+
 
 # generally define error functional E
 # additional verbose and debug modi
