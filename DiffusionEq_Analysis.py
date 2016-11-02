@@ -1,26 +1,25 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.linalg as al
 import inputOutput as io
 import FPModel as fp
 import matplotlib.colors as colors
 import matplotlib.cm as cmx
 
-
-save = True
+save = False
 
 
 def main():
     # printing results
-    path = ('/Users/AmanuelWK/Desktop/Mucus_Negative/')
-    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModelling/Mucus/Ch3_Negative.csv')
+    path = ('/Users/AmanuelWK/Desktop/Mucus_Positive/')
+    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/'
+             'FokkerPlanckModelling/Mucus/Ch1_Positive.csv')
 
     # gathering data and sorting according to error
     M = 4  # number of runs to go through
 
     data = np.array([io.readData(path+'info_%s.csv' % i, typo=str)[1, :-1]
                      for i in range(M)]).astype(float)
-    DValue, EValue = data[:, 1], data[:, 2]
+    EValue = data[:, 2]
     indices = np.argsort(EValue)
 
     # Finding Top N runs
@@ -39,6 +38,7 @@ def main():
     cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
     deltaX = xx[1] - xx[0]
     tt = np.array([0, 600, 900])  # t in seconds
+    c0 = 4
     dim = cc[:, 0].size
     M = cc[0, :].size
 
@@ -49,13 +49,9 @@ def main():
         W[i, :, :], W10[i] = fp.WMatrix(D[i, :], F[i, :],
                                         deltaX=deltaX, bc='open1side')
 
-    c0 = 4
-    Q = np.array([np.linalg.inv(W[i, :, :]) for i in range(N)])  # inverse of W
-    T = np.array([al.expm(W[i, :, :]) for i in range(N)])
-    b = np.array([np.append(c0*W10[i], np.zeros(dim-1)) for i in range(N)])
-    Qb = np.array([np.dot(Q[i, :, :], b[i, :]) for i in range(N)])
-
-    ccRes = np.array([[np.dot(np.linalg.matrix_power(T[i, :, :], tt[j]), cc[:, 0]) + np.dot(np.linalg.matrix_power(T[i, :, :], tt[j]) - np.eye(dim), Qb[i, :]) for j in range(M)] for i in range(N)])
+    ccRes = np.array([[fp.calcC(cc[:, 0], tt[j], W=W[i, :, :],
+                                bc='open1side', W10=W10[i], c0=c0)
+                       for j in range(M)] for i in range(N)])
 
     print('Top %s Runs with minimal error are: \n' % N)
     for i in range(N):
@@ -101,24 +97,13 @@ def main():
             plt.gca().set_xlim(right=xx[-1])
             plt.xlabel('Distance [$\mu m$]')
             plt.ylabel('Concentration [$\mu M$]')
-            plt.plot(xx, cc[:, j], '--', color=colorVal, label=str(int(tt[j]/60))+'m Experiment')
-            plt.plot(xx, ccRes[i, j, :], '-', color=colorVal, label=str(int(tt[j]/60))+'m Computed')
+            plt.plot(xx, cc[:, j], '--', color=colorVal,
+                     label=str(int(tt[j]/60))+'m Experiment')
+            plt.plot(xx, ccRes[i, j, :], '-', color=colorVal,
+                     label=str(int(tt[j]/60))+'m Computed')
 
-        #expData1, = plt.plot(xx, cc[:, 1], 'r--', label='10m Experiment')
-        #calcData1, = plt.plot(xx, ccRes[i, 1, :],
-        #                      'r-', label='10m Computed')
-        #expData2, = plt.plot(xx, cc[:, 2], 'g--', label='15m Experiment')
-        #calcData2, = plt.plot(xx, ccRes[i, 2, :],
-        #                      'g-', label='15m Computed')
-        # expData3, = plt.plot(xx, cc[:, 3], 'k--',
-        #                      label='15m Experiment')
-        # calcData3, = plt.plot(xx, ccRes[i, 3, :],
-        #                      'k-', label='15m Computed')
-
-        plt.title('C-Profiles from run #%s' % (str(indices[i]+1)))
+        plt.title('C-Profiles from run #%s' % (str(indices[i])))
         plt.legend()
-        #plt.legend(handles=[expData0, calcData0, expData1, calcData1,
-        #                       expData2, calcData2])
         if save:
             plt.savefig('/Users/AmanuelWK/Desktop/#%s_profiles.pdf'
                         % str(indices[i]))

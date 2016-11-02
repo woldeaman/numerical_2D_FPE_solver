@@ -48,9 +48,40 @@ def WMatrix(d, f, deltaX=1, bc='reflective'):
         print('Error: Invalid boundary conditions!')
         sys.exit()
 
-#def calcC(c0, W, t, bc='reflective', T=None,)
-'''TODO: Define function for calculation of cProfile from W/T matrix
-'''
+
+# calulating concentration profile at time t from previous times
+def calcC(cc, t, W=None, T=None, bc='reflective', W10=None, c0=None, Qb=None,
+          Q=None, b=None):
+    '''
+    Calculates concentration profiles at time t from W or T matrix with
+    reflective or open boundaries, based on concentration profile cc
+    '''
+
+    # calculate only variables that are not given
+    if (T is None) and (W is None):
+        print('Error: Either W or T Matrix must be given for computation!')
+        sys.exit()
+    if T is None:
+        T = al.expm(W)  # exponential of W
+    dim = T[0, :].size
+
+    if bc == 'open1side':
+        if Qb is None:
+            if Q is None:
+                Q = la.inv(W)  # inverse of W
+            if b is None:
+                if (W10 is None) or (c0 is None):
+                    print('Error: W10 and c0 must be specified for'
+                          'open boundaries!')
+                    sys.exit()
+                b = np.append(c0*W10, np.zeros(dim-1))
+            Qb = np.dot(Q, b)
+
+    if bc == 'reflective':
+        return np.dot(la.matrix_power(T, t), cc)
+    elif bc == 'open1side':
+        return np.dot(la.matrix_power(T, t), cc) + np.dot(
+            la.matrix_power(T, t) - np.eye(dim), Qb)
 
 
 # generally define error functional E
@@ -73,9 +104,10 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     # calculating W and T matrix and extra variables for open BCs
     if bc == 'reflective':
         W = WMatrix(d, f, deltaX, bc)
+        Qb = None
     elif bc == 'open1side':
         W, W10 = WMatrix(d, f, deltaX, bc)
-        Q = np.linalg.inv(W)  # inverse of W
+        Q = la.inv(W)  # inverse of W
         b = np.append(c0*W10, np.zeros(N-1))
         Qb = np.dot(Q, b)
     T = al.expm(W)
@@ -116,28 +148,17 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
             print(np.sum(ccComp, 0))
             sys.exit()
 
-    # computing residual vector
+    # computing residual vector for both types of BCs
     n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
     RR = np.zeros((N, n))
     k = 0
 
-    if bc == 'reflective':
-        for j in range(M):
-            for i in range(M):
-                if j > i:
-                    RR[:, k] = cc[:, j] - np.dot(la.matrix_power(
-                        T, (tt[j] - tt[i])), cc[:, i])
-                    k += 1
-    # check report for residual computation with open boundaries
-    elif bc == 'open1side':
-        for j in range(M):
-            for i in range(M):
-                if j > i:
-                    RR[:, k] = cc[:, j] - np.dot(la.matrix_power(
-                        T, (tt[j] - tt[i])), cc[:, i]) - np.dot(
-                            la.matrix_power(
-                                T, (tt[j] - tt[i])) - np.eye(N), Qb)
-                    k += 1
+    for j in range(M):
+        for i in range(M):
+            if j > i:
+                RR[:, k] = cc[:, j] - calcC(cc[:, i], (tt[j] - tt[i]),
+                                            T=T, Qb=Qb, bc=bc)
+                k += 1
 
     # calculating norm and functional to minimize
     RRn = np.array([al.norm(RR[:, i]) for i in range(RR[0, :].size)])
@@ -149,7 +170,7 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     return RRn
 
 
-# extra function for parallelization
+# extra function for optimization process, written for easy parallelization
 def optimization(iterator, DRange, FRange, bnds, cc, tt, deltaX=1,
                  bc='reflective', c0=None, debug=False, verb=False):
 
@@ -170,7 +191,9 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, deltaX=1,
                                   max_nfev=50, tr_solver='lsmr')
         initVal = result.x
 
-    # result = op.least_squares(optimize, initVal, bounds=bnds, tr_solver='lsmr')
+    # optionally not restricting number of function evaluations
+    # result = op.least_squares(optimize, initVal,
+    # bounds=bnds, tr_solver='lsmr')
 
     # saving data from result
     values = open('info_%s.csv' % iterator, 'w')

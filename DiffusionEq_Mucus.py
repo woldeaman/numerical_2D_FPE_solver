@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
 # implemented fokker-planck equation in 1D for
 # mucus experiments by AG Ribbeck
-
 import numpy as np
 import time
 import functools as ft
 import inputOutput as io
 import FPModel as fp
+import scipy.interpolate as ip
 from multiprocessing import Pool
 
 startTime = time.time()
 parallel = True
 conservation = False
-verbose = False
+verbose = True
 
 
 def main():
@@ -26,14 +26,20 @@ def main():
     # reading profiles
     data = io.readData(path)
     xx = data[:, 0]
-    # only taken 3 samples and remove half of elements due to size
+    # only taken 4 samples and remove half of elements due to size
     cc = np.array([data[:, 1], data[:, 61], data[:, 91]]).T
-    cc = cc[80:, :]  # only look at profiles starting from 100µm (after c0)
-    xx = xx[80:]
-    xx = np.delete(xx, np.arange(0, xx.size, 2))
-    cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
+    # cc = cc[80:, :]  # only look at profiles starting from 100µm (after c0)
+    # xx = xx[80:]
+    # xx = np.delete(xx, np.arange(0, xx.size, 2))  # remove every 2nd bin
+    # cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
+
+    s = [ip.UnivariateSpline(xx, cc[:, i], s=15) for i in range(cc[0, :].size)]
+    xs = np.linspace(xx[0], xx[-1], 100)
+    cc = np.array([s[i](xs) for i in range(cc[0, :].size)]).T
+    xx = xs
+
     deltaX = abs(xx[0] - xx[1])
-    tt = np.array([0, 600, 900])  # t in seconds
+    tt = np.array([0, 300, 600, 900])  # t in seconds
     N = cc[:, 0].size  # number of bins
     c0 = 4  # concentration of peptide solution in µM
 
