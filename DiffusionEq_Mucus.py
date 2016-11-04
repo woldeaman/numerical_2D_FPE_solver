@@ -8,38 +8,41 @@ import inputOutput as io
 import FPModel as fp
 import scipy.interpolate as ip
 from multiprocessing import Pool
+# import sys
 
 startTime = time.time()
 parallel = True
 conservation = False
-verbose = True
+verbose = False
 
 
 def main():
     # path for work
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
-            'Mucus/Ch1_Positive.csv')
+    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
+    #         'Mucus/Ch1_Positive.csv')
     # path for home
-    # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
-    #         'Skin/Results/ExpData/')
+    path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
+            'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
 
     # reading profiles
     data = io.readData(path)
     xx = data[:, 0]
     # only taken 4 samples and remove half of elements due to size
-    cc = np.array([data[:, 1], data[:, 61], data[:, 91]]).T
-    # cc = cc[80:, :]  # only look at profiles starting from 100µm (after c0)
-    # xx = xx[80:]
+    cc = np.array([data[:, 1], data[:, 11], data[:, 21], data[:, 31], data[:, 61], data[:, 91]]).T
+
+    # xx = np.delete(xx, np.arange(0, xx.size, 2))  # remove every 2nd bin
+    # cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
     # xx = np.delete(xx, np.arange(0, xx.size, 2))  # remove every 2nd bin
     # cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
 
-    s = [ip.UnivariateSpline(xx, cc[:, i], s=15) for i in range(cc[0, :].size)]
+    # smoothing of concentration profiles
+    s = [ip.UnivariateSpline(xx, cc[:, i], s=5) for i in range(cc[0, :].size)]
     xs = np.linspace(xx[0], xx[-1], 100)
     cc = np.array([s[i](xs) for i in range(cc[0, :].size)]).T
     xx = xs
 
     deltaX = abs(xx[0] - xx[1])
-    tt = np.array([0, 300, 600, 900])  # t in seconds
+    tt = np.array([0, 100, 200, 300, 600, 900])  # t in seconds
     N = cc[:, 0].size  # number of bins
     c0 = 4  # concentration of peptide solution in µM
 
@@ -49,7 +52,7 @@ def main():
     bnds = (np.zeros(2*(N+1)), np.concatenate((bndsD, bndsF)))
 
     # setting initial conditions
-    DInit = np.linspace(1, 1000, num=4)
+    DInit = (np.random.rand(4)*450)+250
     FInit = 10
 
     # function with one argument (combined d and f) to optimize
@@ -63,7 +66,7 @@ def main():
     ###########################
     if parallel:
         proc = Pool(processes=4)
-        for i in proc.imap_unordered(optimize, range(4)):
+        for i in proc.imap_unordered(optimize, range(DInit.size)):
             print('#%s: Time elapsed is %s s' % (i, time.time() - startTime))
         proc.close()
     else:

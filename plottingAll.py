@@ -24,7 +24,6 @@ def main():
     cc = np.array([s[i](xs) for i in range(N)]).T
     xx = xs
 
-    plt.axis([0, 590, 0, 12.3])
     cm = plt.get_cmap('jet')
     cNorm = colors.Normalize(vmin=0, vmax=N)
     scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)

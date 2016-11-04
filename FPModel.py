@@ -58,16 +58,21 @@ def calcC(cc, t, W=None, T=None, bc='reflective', W10=None, c0=None, Qb=None,
     '''
 
     # calculate only variables that are not given
-    if (T is None) and (W is None):
-        print('Error: Either W or T Matrix must be given for computation!')
-        sys.exit()
     if T is None:
-        T = al.expm(W)  # exponential of W
+        if W is None:
+            print('Error: Either W or T Matrix must be given for computation!')
+            sys.exit()
+        else:
+            T = al.expm(W)  # exponential of W
     dim = T[0, :].size
 
     if bc == 'open1side':
         if Qb is None:
             if Q is None:
+                if W is None:
+                    print('Error: Either W or Q Matrix must be given for'
+                          ' computation!')
+                    sys.exit()
                 Q = la.inv(W)  # inverse of W
             if b is None:
                 if (W10 is None) or (c0 is None):
@@ -94,8 +99,7 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     were cc is 2D array with cc.shape = (number of samples, number of bins)
     '''
     M = cc[0, :].size  # number of concentration profiles
-    # number of bins
-    N = cc[:, 0].size
+    N = cc[:, 0].size  # number of bins
 
     # gathering D and F
     d = df[:int(df.size/2)]
@@ -113,6 +117,7 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     T = al.expm(W)
 
     # check for detailed balance and conservation of concentration
+    # (only for reflective boundaries)
     if (debug):
         # numerical error min 100 times smaller than first entry of W
         if max(abs(np.sum(W, 0))) > abs(W[0, 0])*1E-2:
@@ -152,7 +157,6 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
     RR = np.zeros((N, n))
     k = 0
-
     for j in range(M):
         for i in range(M):
             if j > i:
@@ -193,7 +197,7 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, deltaX=1,
 
     # optionally not restricting number of function evaluations
     # result = op.least_squares(optimize, initVal,
-    # bounds=bnds, tr_solver='lsmr')
+                            #   bounds=bnds, tr_solver='lsmr')
 
     # saving data from result
     values = open('info_%s.csv' % iterator, 'w')
