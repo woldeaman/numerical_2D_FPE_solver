@@ -54,12 +54,12 @@ def plotCon(cc, xx=None, live=False):
             plt.plot(xx, cc[:, i])
             plt.pause(0.05)
 
-            while True:
-                plt.pause(0.05)
+        while True:
+            plt.pause(0.05)
     else:
         for i in range(cc[0, :].size):
             plt.axis([0, XMax, 0, CMax])
             plt.ylabel('Concentration [µM]')
             plt.xlabel('Distance [µm]')
-            plt.scatter(xx, cc[:, i])
+            plt.plot(xx, cc[:, i])
             plt.show()

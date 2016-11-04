@@ -3,41 +3,50 @@ import numpy as np
 import inputOutput as io
 import FPModel as fp
 import matplotlib.colors as colors
+import scipy.interpolate as ip
 import matplotlib.cm as cmx
+import sys
 
 save = False
 
 
 def main():
     # printing results
-    path = ('/Users/AmanuelWK/Desktop/Mucus_Positive/')
-    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/'
-             'FokkerPlanckModelling/Mucus/Ch1_Positive.csv')
+    path = ('/home/amanuelwk/Desktop/Positive/')
+    path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
+             'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
 
     # gathering data and sorting according to error
-    M = 4  # number of runs to go through
+    K = 32  # number of runs to go through
 
     data = np.array([io.readData(path+'info_%s.csv' % i, typo=str)[1, :-1]
-                     for i in range(M)]).astype(float)
+                     for i in range(K)]).astype(float)
     EValue = data[:, 2]
     indices = np.argsort(EValue)
 
     # Finding Top N runs
-    N = 4
+    N = 5
     F = np.array([io.readData(path+'F_%s.txt' % str(indices[i]))
                   for i in range(N)])
     D = np.array([io.readData(path+'D_%s.txt' % str(indices[i]))
                   for i in range(N)])
 
+    # for plotting gathering experimental data
     Cdata = io.readData(path2)
     xx = Cdata[:, 0]
-    cc = np.array([Cdata[:, 1], Cdata[:, 61], Cdata[:, 91]]).T
-    cc = cc[80:, :]  # only look at profiles starting from 100µm (after c0)
-    xx = xx[80:]
-    xx = np.delete(xx, np.arange(0, xx.size, 2))
-    cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
-    deltaX = xx[1] - xx[0]
-    tt = np.array([0, 600, 900])  # t in seconds
+    io.plotCon(Cdata[:, 1:], live=True)
+    sys.exit()
+
+    cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
+
+    # with smoothing as during optimization
+    s = [ip.UnivariateSpline(xx, cc[:, i], s=5) for i in range(cc[0, :].size)]
+    xs = np.linspace(xx[0], xx[-1], 100)
+    cc = np.array([s[i](xs) for i in range(cc[0, :].size)]).T
+    xx = xs
+    deltaX = abs(xx[1] - xx[0])
+
+    tt = np.array([0, 300, 600, 900])  # t in seconds
     c0 = 4
     dim = cc[:, 0].size
     M = cc[0, :].size
