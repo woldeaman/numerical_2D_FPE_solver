@@ -7,7 +7,7 @@ import scipy.interpolate as ip
 import matplotlib.cm as cmx
 import sys
 
-save = True
+save = False
 '''
 code this more generally for different conditions will ya?
 '''
@@ -18,13 +18,12 @@ def main():
     # path = ('/home/amanuelwk/Desktop/Positive/')
     # path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
             #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
-    # path for work
-    path = ('/Users/AmanuelWK/Desktop/untitled folder/')
-    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-             'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+
+    path = ('/Users/AmanuelWK/GoogleDrive/PhD/GitHub/FokkerPlanckModeling/')
+    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/GitHub/FokkerPlanckModeling/cc.txt')
 
     # gathering data and sorting according to error
-    K = 1  # number of runs to go through
+    K = 4  # number of runs to go through
 
     data = np.array([io.readData(path+'info_%s.csv' % i, typo=str)[1, :-1]
                      for i in range(K)]).astype(float)
@@ -32,29 +31,36 @@ def main():
     indices = np.argsort(EValue)
 
     # Finding Top N runs
-    N = 1
+    N = 4
     F = np.array([io.readData(path+'F_%s.txt' % str(indices[i]))
                   for i in range(N)])
     D = np.array([io.readData(path+'D_%s.txt' % str(indices[i]))
                   for i in range(N)])
 
+
     # for plotting gathering experimental data
     Cdata = io.readData(path2)
-    xx = Cdata[:, 0]
+    # xx = Cdata[:, 0]
+    # print(Cdata.shape)
+    # print(Cdata)
+    # sys.exit()
 
-    cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
+    cc = Cdata
 
     # with smoothing as during optimization
-    s = [ip.UnivariateSpline(xx, cc[:, i], s=5) for i in range(cc[0, :].size)]
-    xs = np.linspace(xx[0], xx[-1], 100)
-    cc = np.array([s[i](xs) for i in range(cc[0, :].size)]).T
-    xx = xs
-    deltaX = abs(xx[1] - xx[0])
+    # s = [ip.UnivariateSpline(xx, cc[:, i], s=5) for i in range(cc[0, :].size)]
+    # xs = np.linspace(xx[0], xx[-1], 100)
+    # cc = np.array([s[i](xs) for i in range(cc[0, :].size)]).T
+    # xx = xs
+    # deltaX = abs(xx[1] - xx[0])
 
-    tt = np.array([0, 300, 600, 900])  # t in seconds
+    tt = np.array([0, 10, 20, 30, 40, 50])
     c0 = 4
     dim = cc[:, 0].size
     M = cc[0, :].size
+    xx = range(dim)
+    deltaX = abs(xx[1] - xx[0])
+
 
     # gatherin W matrices and calculating concentration profiles
     W = np.zeros((N, dim, dim))
@@ -63,7 +69,7 @@ def main():
         # W[i, :, :], W10[i] = fp.WMatrix(D[i, :], F[i, :],
                                         # deltaX=deltaX, bc='open1side')
     for i in range(N):
-        W[i, :, :], W10[i] = fp.WMatrixPart(D[i, :], F[i, :], deltaX=deltaX,)
+        W[i, :, :], W10[i] = fp.WMatrixPart(D[i, :], F[i, :])
 
     ccRes = np.array([[fp.calcC(cc[:, 0], tt[j], W=W[i, :, :],
                                 bc='open1side', W10=W10[i], c0=c0)
@@ -73,6 +79,13 @@ def main():
     for i in range(N):
         print('Run #%s with E = %s \n'
               % (str(indices[i]), EValue[indices[i]]))
+
+    FTemp = np.array([np.append(np.ones(1)*F[i, 0], np.ones(12)*F[i, 1]) for i in range(N)])
+    F = np.array([np.append(FTemp[i, :], np.ones(13)*F[i, 2]) for i in range(N)])
+
+    DTemp = np.array([np.append(np.ones(1)*D[i, 0], np.ones(12)*D[i, 1]) for i in range(N)])
+    D = np.array([np.append(DTemp[i, :], np.ones(13)*D[i, 2]) for i in range(N)])
+
 
     # plotting results
     xxDF = np.insert(xx, 0, xx[0]-deltaX,)
@@ -87,7 +100,7 @@ def main():
         plt.figure(i)
         plt.gca().set_xlim(left=xx[0])
         plt.gca().set_xlim(right=xx[-1])
-        # plt.plot(xxDF, D[i, :])
+        plt.plot(xxDF, D[i, :])
         plt
         plt.xlabel('Distance [$\mu m$]')
         plt.ylabel('Diffusivity [$\mu m^2/s$]')
@@ -100,7 +113,7 @@ def main():
         plt.figure(i+1)
         plt.gca().set_xlim(left=xx[0])
         plt.gca().set_xlim(right=xx[-1])
-        # plt.plot(xxDF, F[i, :])
+        plt.plot(xxDF, F[i, :])
         plt.xlabel('Distance [$\mu m$]')
         plt.ylabel('Free Energy [$k_{B}T$]')
         plt.title('F_%s' % str(indices[i]))

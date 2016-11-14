@@ -7,10 +7,50 @@ import functools as ft
 import scipy.optimize as op
 import sys
 
+''' quick and dirty implementation, change later on '''
+# quick and dirty implementation of segmentation with open BCs
+def WMatrixPart(D, F, deltaX=1):
+    '''change'''
+    dtemp = np.append(D[0], np.ones(18)*D[1])
+    d = np.append(dtemp, np.ones(82)*D[2])
+
+    ftemp = np.append(F[0], np.ones(18)*F[1])
+    f = np.append(ftemp, np.ones(82)*F[2])
+
+    FUp = f - np.roll(f, -1)  # F contributions off-diagonal
+    FDown = f - np.roll(f, 1)
+
+    DUp = d + np.roll(d, -1)  # D contributions off-diagonal
+    DDown = d + np.roll(d, 1)
+
+    # computing off-diagonals (dimensionless)
+    DiagUp = DUp/(2*(deltaX)**2) * np.exp(-FUp/2)
+    DiagDown = DDown/(2*(deltaX)**2) * np.exp(-FDown/2)
+
+    DiagUp[-1] = 0  # reflective bc's
+    DiagDown[0] = 0
+
+    # main diagonal is negative sum of off-diagonals
+    DiagMain = -(np.roll(DiagUp, 1) + np.roll(DiagDown, -1))
+
+    # constructing W Matrix from diagonal entries
+    W = np.diag(DiagMain) + np.diag(DiagUp[:-1], 1) + np.diag(DiagDown[1:], -1)
+
+    # constructing W Matrix from diagonal entries
+    W = np.diag(DiagMain) + np.diag(DiagUp[:-1], 1) + np.diag(DiagDown[1:], -1)
+
+    # np.set_printoptions(threshold=np.nan)
+    # print('F: \n', f, 'D: \n', d)
+    # print(np.sum(W[1:, 1:], 0))
+    return [W[1:, 1:], W[1, 0]]
+
 
 # definition of rate matrix
 # with reflective BCs or one sided open BCs
 # in case of open BCs df0 contains d and f for leftmost bin outside domain
+''' Implement computation of W in compartments with constant F and D
+and with variable binning
+'''
 def WMatrix(d, f, deltaX=1, bc='reflective'):
     '''
     Calculates entries of rate matrix W with rank F.size
@@ -105,15 +145,29 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     d = df[:int(df.size/2)]
     f = df[int(df.size/2):]
 
+    ''' quick and dirty implementation, change later on '''
+    if bc == 'segmented':
+        W, W10 = WMatrixPart(d, f, deltaX)
+        # v, w = la.eig(W)
+        # print('Eig:', min(abs(v)))
+        # print(W)
+        Q = la.inv(W)  # inverse of W
+        # print(la.det(np.dot(Q, W)))
+        b = np.append(c0*W10, np.zeros(N-1))
+        Qb = np.dot(Q, b)
     # calculating W and T matrix and extra variables for open BCs
     if bc == 'reflective':
         W = WMatrix(d, f, deltaX, bc)
         Qb = None
     elif bc == 'open1side':
         W, W10 = WMatrix(d, f, deltaX, bc)
+        # v, w = la.eig(W)
+        # print('Eig:', min(abs(v)))
         Q = la.inv(W)  # inverse of W
         b = np.append(c0*W10, np.zeros(N-1))
         Qb = np.dot(Q, b)
+        # Q = la.pinv(W)  # inverse of W
+        # print(la.det(np.dot(Q, W)))
     T = al.expm(W)
 
     # check for detailed balance and conservation of concentration
@@ -161,14 +215,15 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
         for i in range(M):
             if j > i:
                 RR[:, k] = cc[:, j] - calcC(cc[:, i], (tt[j] - tt[i]),
-                                            T=T, Qb=Qb, bc=bc)
+                                            T=T, Qb=Qb, bc='open1side')
                 k += 1
+                '''change later bc back to bc!!!'''
 
     # calculating norm and functional to minimize
-    RRn = np.array([al.norm(RR[:, i]) for i in range(RR[0, :].size)])
+    RRn = np.array([al.norm(RR[:, i]) for i in range(n)])
     if (verb):
-        # E = (1/(dim*(M-1)))*np.sum(RRn**2), normalized version
-        E = np.sum(RRn**2)
+        E = np.sum(RRn**2)/(N*n)  # normalized version
+        # E = np.sum(RRn**2) #non-normalized version
         print(E)
 
     return RRn
@@ -182,6 +237,9 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, deltaX=1,
     optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, bc=bc,
                           c0=c0, debug=debug, verb=verb)
 
+    ''' quick and dirty implementation, change later on '''
+    if bc == 'segmented':
+        initVal = np.append(np.ones(3)*DRange[iterator], np.ones(3)*FRange)
     if bc == 'reflective':
         initVal = np.append(np.ones(dim)*DRange[iterator], np.ones(dim)*FRange)
     elif bc == 'open1side':
@@ -214,6 +272,13 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, deltaX=1,
     if bc == 'open1side':
         D = result.x[:dim+1]
         F = result.x[dim+1:]
+
+    '''
+    this is getting annoying -.-, also change this part plz
+    '''
+    if bc == 'segmented':
+            D = result.x[:3]
+            F = result.x[3:]
 
     np.savetxt('D_%s.txt' % iterator, D, delimiter=', ')
     np.savetxt('F_%s.txt' % iterator, F, delimiter=', ')
