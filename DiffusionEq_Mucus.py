@@ -13,9 +13,9 @@ import scipy.interpolate as ip
 # import matplotlib.pyplot as plt
 
 startTime = time.time()
-parallel = True
+parallel = False
 conservation = False
-verbose = True
+verbose = False
 
 
 def main():
@@ -29,13 +29,8 @@ def main():
     # reading profiles
     data = io.readData(path)
     xx = data[:, 0]
-    # only taken 4 samples and remove half of elements due to size
+    # only taken 4 samples
     cc = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
-
-    # xx = np.delete(xx, np.arange(0, xx.size, 2))  # remove every 2nd bin
-    # cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
-    # xx = np.delete(xx, np.arange(0, xx.size, 2))  # remove every 2nd bin
-    # cc = np.delete(cc, np.arange(0, cc.size, 2), axis=0)
 
     # smoothing of concentration profiles
     s = [ip.UnivariateSpline(xx, cc[:, i], s=5) for i in range(cc[0, :].size)]
@@ -43,6 +38,7 @@ def main():
     cc = np.array([s[i](xs) for i in range(cc[0, :].size)]).T
     xx = xs
 
+    # taking care of negative concentration values
     for i in range(cc[:, 0].size):
         for j in range(cc[0, :].size):
             if (cc[i, j]) <= 0:
@@ -72,16 +68,18 @@ def main():
     # changed for segmentation analysis
     bndsD = np.ones(3)*np.inf
     bndsF = np.ones(3)*20
-    bnds = (np.zeros(2*(3)), np.concatenate((bndsD, bndsF)))
+    bndsDist = np.ones(1)*36
+    bnds = (np.zeros((2*3)+1), np.concatenate((bndsD, bndsF, bndsDist)))
 
     # setting initial conditions
-    DInit = (np.random.rand(4)*400)+200
+    # DInit = (np.random.rand(4)*400)+200
+    DInit = 400
     FInit = 10
+    DistInit = np.linspace(0, 36, 4)
 
-    ''' quick and dirty implementation, change later on --> bc'''
     # function with one argument (combined d and f) to optimize
     optimize = ft.partial(fp.optimization, DRange=DInit, FRange=FInit,
-                          bnds=bnds, cc=cc, tt=tt,
+                          DistRange=DistInit, bnds=bnds, cc=cc, tt=tt,
                           deltaX=deltaX, bc='segmented', c0=c0,
                           debug=conservation, verb=verbose)
 
@@ -94,7 +92,7 @@ def main():
             print('#%s: Time elapsed is %s s' % (i, time.time() - startTime))
         proc.close()
     else:
-        for i in range(DInit.size):
+        for i in range(DistInit.size):
             optimize(i)
 
 if __name__ == "__main__":
