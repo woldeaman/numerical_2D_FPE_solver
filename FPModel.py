@@ -6,7 +6,7 @@ import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
 import sys
-
+'''why 4 entries for F ???'''
 
 # computing D and F profiles for 3 segments and trasition distances dx
 # as of now with transition segment position at bin 18
@@ -272,7 +272,7 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, DistRange=None,
 
     elif bc == 'segmented':
             D = result.x[:3]
-            F = result.x[3:]
+            F = result.x[3:-1]
             dist = result.x[-1]
             np.savetxt(d+'Dist_%s.txt' % (DistRange, iterator),
                        np.ones(1)*dist*deltaX, delimiter=', ')
