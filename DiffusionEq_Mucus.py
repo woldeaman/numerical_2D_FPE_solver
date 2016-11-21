@@ -13,18 +13,18 @@ import scipy.interpolate as ip
 # import matplotlib.pyplot as plt
 
 startTime = time.time()
-parallel = False
+parallel = True
 conservation = False
-verbose = False
+verbose = True
 
 
 def main():
     # path for work
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            # 'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
     # path for home
-    # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
-    # 'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+    path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
 
     # reading profiles
     data = io.readData(path)
@@ -56,7 +56,6 @@ def main():
 
     deltaX = abs(xx[0] - xx[1])
     tt = np.array([0, 300, 600, 900])  # t in seconds
-    N = cc[:, 0].size  # number of bins
     c0 = 4  # concentration of peptide solution in µM
 
     # setting bounds, D first and F second
@@ -72,28 +71,30 @@ def main():
     bnds = (np.zeros((2*3)+1), np.concatenate((bndsD, bndsF, bndsDist)))
 
     # setting initial conditions
-    # DInit = (np.random.rand(4)*400)+200
-    DInit = 400
+    DInit = (np.random.rand(128)*400)+200
+    # DInit = np.random.rand()
     FInit = 10
-    DistInit = np.linspace(0, 36, 4)
+    DistInit = np.linspace(0, 36, 18)
 
-    # function with one argument (combined d and f) to optimize
-    optimize = ft.partial(fp.optimization, DRange=DInit, FRange=FInit,
-                          DistRange=DistInit, bnds=bnds, cc=cc, tt=tt,
-                          deltaX=deltaX, bc='segmented', c0=c0,
-                          debug=conservation, verb=verbose)
+    for k in range(DistInit.size):
+        # function with one argument (combined d and f) to optimize
+        optimize = ft.partial(fp.optimization, DRange=DInit, FRange=FInit,
+                              DistRange=DistInit[k], bnds=bnds, cc=cc, tt=tt,
+                              deltaX=deltaX, bc='segmented', c0=c0,
+                              debug=conservation, verb=verbose)
 
-    ###########################
-    # linear and parallel implementation
-    ###########################
-    if parallel:
-        proc = Pool(processes=4)
-        for i in proc.imap_unordered(optimize, range(DInit.size)):
-            print('#%s: Time elapsed is %s s' % (i, time.time() - startTime))
-        proc.close()
-    else:
-        for i in range(DistInit.size):
-            optimize(i)
+        ###########################
+        # linear and parallel implementation
+        ###########################
+        if parallel:
+            proc = Pool(processes=32)
+            for i in proc.imap_unordered(optimize, range(DInit.size)):
+                print('#%s: Time elapsed is %s s' %
+                      (i, time.time() - startTime))
+                proc.close()
+            else:
+                for i in range(DInit.size):
+                    optimize(i)
 
 if __name__ == "__main__":
     main()

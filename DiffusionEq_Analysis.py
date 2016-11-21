@@ -8,26 +8,26 @@ import matplotlib.cm as cmx
 import sys
 
 save = True
-'''
-code this more generally for different conditions will ya?
-'''
 
 def main():
     # printing results
     # path for home
-    # path = ('/home/amanuelwk/Desktop/Positive/')
-    # path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
-            #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
-    # path for work
-    path = ('/Users/AmanuelWK/Desktop/untitled folder/')
-    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+    path = ('/home/amanuelwk/Desktop/transition/')
+    path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModelling/'
              'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+    # path for work
+    # path = ('/Users/AmanuelWK/Desktop/untitled folder/')
+    # path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
 
     # gathering data and sorting according to error
-    K = 1  # number of runs to go through
+    K = 2304  # number of runs to go through
 
-    data = np.array([io.readData(path+'info_%s.csv' % i, typo=str)[1, :-1]
-                     for i in range(K)]).astype(float)
+    dist = np.linspace(0, 36, 18)
+    d = ['d=%s_' % dist[i] for i in range(d.size)]
+
+    data = np.array([[io.readData(path+d[k]+'info_%s.csv' % i, typo=str)[1, :-1]
+                     for k in range(d.size)] for i in range(K)]).astype(float)
     EValue = data[:, 2]
     indices = np.argsort(EValue)
 

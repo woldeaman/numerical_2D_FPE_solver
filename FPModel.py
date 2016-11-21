@@ -8,14 +8,11 @@ import scipy.optimize as op
 import sys
 
 
-''' later on integrate this into WMatrix definition '''
-# quick and dirty implementation of segmentation with open BCs
-def WMatrixVariable(D, F, dist, deltaX=1):
-    # interface at bin 18 --> dist e [0, 18]
-    # defining different segments
+# computing D and F profiles for 3 segments and trasition distances dx
+# as of now with transition segment position at bin 18
+def computeDF(d, f, dim, dx, bc='open1side'):
 
-    # for linearization of distance, dist = dmax*dx, with dx e [0, 1]
-    dist = round(dist)
+    dist = round(dx)
     if dist % 2 == 0:
         x = dist/2
         y = dist/2
@@ -24,53 +21,28 @@ def WMatrixVariable(D, F, dist, deltaX=1):
         y = np.ceil(dist/2)
 
     # for open boundary conditions
-    dCon = D[0]*np.ones(1)
-    fCon = F[0]*np.ones(1)
+    if bc == 'open1side':
+        dCon = d[0]*np.ones(1)
+        fCon = f[0]*np.ones(1)
 
     # peptide solution phase
-    dSol = D[1]*np.ones(18-x)
-    fSol = F[1]*np.ones(18-x)
+    dSol = d[1]*np.ones(18-x)
+    fSol = f[1]*np.ones(18-x)
 
     # transition phase
-    dTrans = np.linspace(D[1], D[2], dist)
-    fTrans = np.linspace(F[1], F[2], dist)
+    dTrans = np.linspace(d[1], d[2], dist)
+    fTrans = np.linspace(f[1], f[2], dist)
 
     # mucus phase
     # round for odd numbers
-    dMuc = D[2]*np.ones(100-18-y)
-    fMuc = F[2]*np.ones(100-18-y)
+    dMuc = d[2]*np.ones(dim-18-y)
+    fMuc = f[2]*np.ones(dim-18-y)
 
     # combining segmented profiles
-    d = np.concatenate((dCon, dSol, dTrans, dMuc))
-    f = np.concatenate((fCon, fSol, fTrans, fMuc))
+    D = np.concatenate((dCon, dSol, dTrans, dMuc))
+    F = np.concatenate((fCon, fSol, fTrans, fMuc))
 
-    # computation of matrix elements
-    FUp = f - np.roll(f, -1)  # F contributions off-diagonal
-    FDown = f - np.roll(f, 1)
-
-    DUp = d + np.roll(d, -1)  # D contributions off-diagonal
-    DDown = d + np.roll(d, 1)
-
-    # computing off-diagonals (dimensionless)
-    DiagUp = DUp/(2*(deltaX)**2) * np.exp(-FUp/2)
-    DiagDown = DDown/(2*(deltaX)**2) * np.exp(-FDown/2)
-
-    DiagUp[-1] = 0  # reflective bc's
-    DiagDown[0] = 0
-
-    # main diagonal is negative sum of off-diagonals
-    DiagMain = -(np.roll(DiagUp, 1) + np.roll(DiagDown, -1))
-
-    # constructing W Matrix from diagonal entries
-    W = np.diag(DiagMain) + np.diag(DiagUp[:-1], 1) + np.diag(DiagDown[1:], -1)
-
-    # constructing W Matrix from diagonal entries
-    W = np.diag(DiagMain) + np.diag(DiagUp[:-1], 1) + np.diag(DiagDown[1:], -1)
-
-    # np.set_printoptions(threshold=np.nan)
-    # print('F: \n', f, 'D: \n', d)
-    # print(np.sum(W[1:, 1:], 0))
-    return [W[1:, 1:], W[1, 0]]
+    return D, F
 
 
 # definition of rate matrix
@@ -108,7 +80,7 @@ def WMatrix(d, f, deltaX=1, bc='reflective'):
     elif bc == 'open1side':
         # returning truncated matrix as well as W[1, 0]
         # which is used for further calculations
-        return [W[1:, 1:], W[1, 0]]
+        return W[1:, 1:], W[1, 0]
     else:
         print('Error: Invalid boundary conditions!')
         sys.exit()
@@ -164,7 +136,6 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     for time tt[i] and tt[j] > tt[i] if j > i
     were cc is 2D array with cc.shape = (number of samples, number of bins)
     '''
-    print(df)
 
     M = cc[0, :].size  # number of concentration profiles
     N = cc[:, 0].size  # number of bins
@@ -172,27 +143,15 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     # gathering D and F
     # for segmented D and F analysis
     if bc == 'segmented':
-        d = df[:int(df.size/2)]
-        f = df[int(df.size/2):-1]
-        dist = df[-1]
+        d, f = computeDF(d=df[:int(df.size/2)], f=df[int(df.size/2):-1],
+                         dim=100, dx=df[-1])
+        bc = 'open1side'  # from here on computation as with open BCs
     else:
         d = df[:int(df.size/2)]
         f = df[int(df.size/2):]
 
-    ''' quick and dirty implementation, change later on '''
-    if bc == 'segmented':
-        W, W10 = WMatrixVariable(d, f, dist, deltaX)
-        # v, w = la.eig(W)
-        # print('Eig:', min(abs(v)))
-        # print(W)
-        Q = la.inv(W)  # inverse of W
-        # print(la.det(np.dot(Q, W)))
-        b = np.append(c0*W10, np.zeros(N-1))
-        Qb = np.dot(Q, b)
-        # from here on same calculation as with open BCs
-        bc = 'open1side'
     # calculating W and T matrix and extra variables for open BCs
-    elif bc == 'reflective':
+    if bc == 'reflective':
         W = WMatrix(d, f, deltaX, bc)
         Qb = None
     elif bc == 'open1side':
@@ -274,8 +233,9 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, DistRange=None,
 
     ''' quick and dirty implementation, change later on '''
     if bc == 'segmented':
-        initVal = np.concatenate((np.ones(3)*DRange,
-                                  np.ones(3)*FRange, np.ones(1)*DistRange[iterator]))
+        initVal = np.concatenate((np.ones(3)*DRange[iterator],
+                                  np.ones(3)*FRange,
+                                  np.ones(1)*DistRange))
     if bc == 'reflective':
         initVal = np.append(np.ones(dim)*DRange[iterator], np.ones(dim)*FRange)
     elif bc == 'open1side':
@@ -289,12 +249,13 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, DistRange=None,
                                   max_nfev=50, tr_solver='lsmr')
         initVal = result.x
 
-    # optionally not restricting number of function evaluations
-    # result = op.least_squares(optimize, initVal,
-                            #   bounds=bnds, tr_solver='lsmr')
-
     # saving data from result
-    values = open('info_%s.csv' % iterator, 'w')
+    if bc == 'segmented':
+        d = 'd=%s_' % DistRange
+    else:
+        d = ''
+
+    values = open(d+'info_%s.csv' % (DistRange, iterator), 'w')
     values.write('#, DValue, EValue, #OfEvaluations, Message\n')
     values.write(str(iterator)+', ' + str(DValStart) + ', ' +
                  str(result.cost) + ', ' + str(result.nfev) +
@@ -313,11 +274,10 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, DistRange=None,
             D = result.x[:3]
             F = result.x[3:]
             dist = result.x[-1]
+            np.savetxt(d+'Dist_%s.txt' % (DistRange, iterator),
+                       np.ones(1)*dist*deltaX, delimiter=', ')
 
-    np.savetxt('D_%s.txt' % iterator, D, delimiter=', ')
-    np.savetxt('F_%s.txt' % iterator, F, delimiter=', ')
-    if bc == 'segmented':
-        np.savetxt('Dist_%s.txt' % iterator,
-                   np.ones(1)*dist, delimiter=', ')
+    np.savetxt(d+'D_%s.txt' % (DistRange, iterator), D, delimiter=', ')
+    np.savetxt(d+'F_%s.txt' % (DistRange, iterator), F, delimiter=', ')
 
     return iterator
