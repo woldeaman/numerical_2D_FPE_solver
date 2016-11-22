@@ -6,7 +6,6 @@ import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
 import sys
-'''why 4 entries for F ???'''
 
 # computing D and F profiles for 3 segments and trasition distances dx
 # as of now with transition segment position at bin 18
@@ -170,14 +169,14 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     if bc == 'reflective' and debug:
         # numerical error min 100 times smaller than first entry of W
         if max(abs(np.sum(W, 0))) > abs(W[0, 0])*1E-2:
-            print('Error: W Matrix is not row stochastic in rows: ',
+            print('Error: W Matrix is not row stochastic in rows: \n',
                   np.nonzero(np.sum(W, 0) > abs(W[0, 0])*1E-2))
             print(np.sum(W, 0))
             sys.exit()
 
         # same check for T matrix
         if max(abs(np.sum(T, 0)-1)) > abs(T[0, 0])*1E-2:
-            print('Error: T Matrix is not row stochastic in rows:',
+            print('Error: T Matrix is not row stochastic in rows: \n',
                   np.nonzero(np.sum(T, 0) > abs(T[0, 0])*1E-2))
             print(np.sum(T, 0), 0)
             sys.exit()
@@ -185,7 +184,7 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
         con = np.average(np.sum(cc, 0))
         # max 10% deviation from avg
         if np.any(abs(np.sum(cc, 0)-con) > 0.1*con):
-            print('Error: Concentration is not conserved in profiles: ',
+            print('Error: Concentration is not conserved in profiles: \n',
                   np.nonzero(abs(np.sum(cc, 0)-con) > 0.1*con))
             print(np.sum(cc, 0))
             sys.exit()
@@ -197,7 +196,7 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
 
         if np.any(abs(np.sum(ccComp, 0)-con) > 0.1*con):
             print('Error: Computed concentration '
-                  'is not conserved in profiles: ',
+                  'is not conserved in profiles: \n',
                   np.nonzero(abs(np.sum(ccComp, 0)-con) > 0.1*con))
             print(np.sum(ccComp, 0))
             sys.exit()
@@ -205,6 +204,7 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     # computing residual vector for both types of BCs
     n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
     RR = np.zeros((N, n))
+
     k = 0
     for j in range(M):
         for i in range(M):
@@ -213,6 +213,10 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
                                             T=T, Qb=Qb, bc=bc)
                 k += 1
 
+    print('T_max: \n', np.max(T))
+    print('D: \n', d)
+    print('F: \n', f)
+    print('RR: \n', RR)
     # calculating norm and functional to minimize
     RRn = np.array([al.norm(RR[:, i]) for i in range(n)])
     if (verb):
@@ -255,7 +259,7 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, DistRange=None,
     else:
         d = ''
 
-    values = open(d+'info_%s.csv' % (DistRange, iterator), 'w')
+    values = open(d+'info_%s.csv' % iterator, 'w')
     values.write('#, DValue, EValue, #OfEvaluations, Message\n')
     values.write(str(iterator)+', ' + str(DValStart) + ', ' +
                  str(result.cost) + ', ' + str(result.nfev) +
@@ -274,10 +278,10 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, DistRange=None,
             D = result.x[:3]
             F = result.x[3:-1]
             dist = result.x[-1]
-            np.savetxt(d+'Dist_%s.txt' % (DistRange, iterator),
+            np.savetxt(d+'Dist_%s.txt' % iterator,
                        np.ones(1)*dist*deltaX, delimiter=', ')
 
-    np.savetxt(d+'D_%s.txt' % (DistRange, iterator), D, delimiter=', ')
-    np.savetxt(d+'F_%s.txt' % (DistRange, iterator), F, delimiter=', ')
+    np.savetxt(d+'D_%s.txt' % iterator, D, delimiter=', ')
+    np.savetxt(d+'F_%s.txt' % iterator, F, delimiter=', ')
 
     return iterator
