@@ -16,7 +16,7 @@ def main():
     # path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
             #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
     # path for work
-    path = ('/Users/AmanuelWK/Google Drive/PhD/Projects/FokkerPlanckModeling/Mucus/Results/ComputedData/segmented/Positive/')
+    path = ('/Users/AmanuelWK/Google Drive/PhD/Projects/FokkerPlanckModeling/Mucus/Results/ComputedData/segmented/Run1/')
     path2 = ('/Users/AmanuelWK/Google Drive/PhD/Projects/FokkerPlanckModeling/'
              'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
 
@@ -44,9 +44,9 @@ def main():
             if (cc[i, j]) <= 0:
                 cc[i, j] = 0
 
-    # E = np.zeros(17)
-    # DDist = np.zeros(17)
-    for k in range(16, dist.size-1):
+    E = np.zeros(dist.size-1)
+    DDist = np.zeros(dist.size-1)
+    for k in range(dist.size-1):
         data = np.array([io.readData(path+d[k]+'info_%s.csv' % i, typo=str)[1, :-1] for i in range(K)]).astype(float)
         EValue = data[:, 2]
         indices = np.argsort(EValue)
@@ -77,23 +77,25 @@ def main():
 
         ccRes = np.array([[fp.calcC(cc[:, 0], tt[j], W=W[i, :, :], bc='open1side', W10=W10[i], c0=c0) for j in range(M)] for i in range(N)])
 
-        ccTest = fp.calcC(cc[:, 0], 5000, W=W[0, :, :], bc='open1side', W10=W10, c0=c0)
-        plt.figure(k)
-        plt.axis([0, 600, 0, 12])
-        plt.plot(xx, ccTest)
-        plt.show()
+        # ccTest = fp.calcC(cc[:, 0], 5000, W=W[0, :, :], bc='open1side', W10=W10, c0=c0)
+        # plt.figure(k)
+        # plt.axis([0, 600, 0, 12])
+        # plt.plot(xx, ccTest)
+        # plt.show()
         # print(ccTest.shape)
         # sys.exit()
 
-        # E[k] = EValue[indices[i]]
-        # DDist[k] = Dist[i, 0]
+        E[k] = EValue[indices[i]]
+        DDist[k] = Dist[i, 0]/deltaX
 
-    # plt.plot(DDist/deltaX, E)
-    # plt.xlabel('Transition Distance [bins]')
-    # plt.ylabel('Minimal Error')
-    # plt.show()
+    np.savetxt('E.txt', E, delimiter=', ')
+    np.savetxt('Dist.txt', DDist, delimiter=', ')
+    plt.plot(DDist/deltaX, E)
+    plt.xlabel('Transition Distance [bins]')
+    plt.ylabel('Minimal Error')
+    plt.show()
 
-        # print('Top %s Runs with minimal error are: \n' % N)
+        # print('Top %s Runs for %s with minimal error are: \n' % (N, d[k]))
         # for i in range(N):
         #     print('Run #%s with E = %s \n' % (str(indices[i]), EValue[indices[i]]))
         #

@@ -71,10 +71,10 @@ def main():
     bnds = (np.zeros((2*3)+1), np.concatenate((bndsD, bndsF, bndsDist)))
 
     # setting initial conditions
-    DInit = (np.random.rand(128)*400)+200
+    DInit = (np.random.rand(256)*400)+200
     # DInit = np.random.rand()
     FInit = 10
-    DistInit = np.linspace(0, 36, 18)
+    DistInit = np.arange(0, 37, 2)
 
     for k in range(DistInit.size):
         # function with one argument (combined d and f) to optimize
