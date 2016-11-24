@@ -13,18 +13,18 @@ from multiprocessing import Pool
 # import matplotlib.pyplot as plt
 
 startTime = time.time()
-parallel = False
+parallel = True
 conservation = False
-verbose = False
+verbose = True
 
 
 def main():
     # path for work
-    path = ('/Users/AmanuelWK/Google Drive/PhD/Projects/FokkerPlanckModeling/'
-            'Skin/Results/ExperimentalData/')
+    # path = ('/Users/AmanuelWK/Google Drive/PhD/Projects/FokkerPlanckModeling/'
+            # 'Skin/Results/ExperimentalData/')
     # path for home
-    # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-    #         'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+    path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            'Skin/Results/ExperimentalData/')
 
     # reading profiles
     data = np.array([np.concatenate((np.ones(1), np.zeros(70))),
@@ -34,27 +34,28 @@ def main():
     cc = data.T
     tt = np.array([0, 600, 6000, 60000])  # t in seconds
     N = cc[:, 0].size  # number of bins
-    deltaX = 1E-6
+    # deltaX = 1E-6
 
     # setting bounds, D first and F second
-    bndsD = np.ones(N)*10000
+    bndsD = np.ones(N)*2000
     bndsF = np.ones(N)*20
     bnds = (np.zeros(2*(N)), np.concatenate((bndsD, bndsF)))
 
     # setting initial conditions
-    DInit = (np.random.rand(512)*350)
+    # DInit = (np.random.rand(4)*1000)
+    DInit = np.linspace(0, 1000, 8)
     FInit = 5
 
     # function with one argument (combined d and f) to optimize
     optimize = ft.partial(fp.optimization, DRange=DInit, FRange=FInit,
                           bnds=bnds, cc=cc, tt=tt, bc='reflective',
-                          debug=conservation, verb=verbose, deltaX=deltaX)
+                          debug=conservation, verb=verbose)
 
     ###########################
     # linear and parallel implementation
     ###########################
     if parallel:
-        proc = Pool(processes=4)
+        proc = Pool(processes=8)
         for i in proc.imap_unordered(optimize, range(DInit.size)):
             print('#%s: Time elapsed is %s s' % (i, time.time() - startTime))
             proc.close()

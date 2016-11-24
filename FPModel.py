@@ -7,6 +7,7 @@ import functools as ft
 import scipy.optimize as op
 import sys
 
+
 # computing D and F profiles for 3 segments and trasition distances dx
 # as of now with transition segment position at bin 18
 def computeDF(d, f, dim, dx, bc='open1side'):
@@ -213,10 +214,6 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
                                             T=T, Qb=Qb, bc=bc)
                 k += 1
 
-    print('T_max: \n', np.max(T))
-    print('D: \n', d)
-    print('F: \n', f)
-    print('RR: \n', RR)
     # calculating norm and functional to minimize
     RRn = np.array([al.norm(RR[:, i]) for i in range(n)])
     if (verb):
