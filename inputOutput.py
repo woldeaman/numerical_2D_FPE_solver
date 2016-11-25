@@ -2,6 +2,7 @@
 import numpy as np
 import csv
 from matplotlib import pyplot as plt
+import scipy.interpolate as ip
 
 
 # reading data
@@ -31,6 +32,30 @@ def readData(path, sep=',', typo=float):
             data = np.array([row[0] for row in reader])
 
     return data.astype(typo)  # returns np array
+
+
+def preProcessing(xx, cc, smoothing=True, order=5, bins=100):
+    '''
+    Function takes care of negative entries for concentration (set to zero)
+    and additionally smoothes profiles or normalizes them (to be implemented).
+    Profiles should be in format cc[:, i] for different times t_i
+    '''
+    profiles = cc
+
+    # taking care of negative concentration values
+    for i in range(profiles[:, 0].size):
+        for j in range(profiles[0, :].size):
+            if (profiles[i, j]) <= 0:
+                profiles[i, j] = 0
+
+    # smoothing of concentration profiles
+    if smoothing:
+        s = [ip.UnivariateSpline(xx, profiles[:, i], s=order)
+             for i in range(profiles[0, :].size)]
+        xs = np.linspace(xx[0], xx[-1], bins)
+        profiles = np.array([s[i](xs) for i in range(profiles[0, :].size)]).T
+
+    return xx, profiles
 
 
 # plotting concentration profiles for different times
