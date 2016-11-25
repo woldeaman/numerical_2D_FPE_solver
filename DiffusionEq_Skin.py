@@ -13,18 +13,18 @@ from multiprocessing import Pool
 # import matplotlib.pyplot as plt
 
 startTime = time.time()
-parallel = True
+parallel = False
 conservation = False
 verbose = True
 
 
 def main():
     # path for work
-    # path = ('/Users/AmanuelWK/Google Drive/PhD/Projects/FokkerPlanckModeling/'
-            # 'Skin/Results/ExperimentalData/')
-    # path for home
-    path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
             'Skin/Results/ExperimentalData/')
+    # path for home
+    # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+    #         'Skin/Results/ExperimentalData/')
 
     # reading profiles
     data = np.array([np.concatenate((np.ones(1), np.zeros(70))),
@@ -43,7 +43,7 @@ def main():
 
     # setting initial conditions
     # DInit = (np.random.rand(4)*1000)
-    DInit = np.linspace(0, 1000, 8)
+    DInit = np.linspace(0, 1000, 4)
     FInit = 5
 
     # function with one argument (combined d and f) to optimize

@@ -6,6 +6,7 @@ import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
 import sys
+import os
 
 
 # computing D and F profiles for 3 segments and trasition distances dx
@@ -26,8 +27,8 @@ def computeDF(d, f, dim, dx, bc='open1side'):
         fCon = f[0]*np.ones(1)
 
     # peptide solution phase
-    dSol = d[1]*np.ones(18-x)
-    fSol = f[1]*np.ones(18-x)
+    dSol = d[1]*np.ones(int(18-x))
+    fSol = f[1]*np.ones(int(18-x))
 
     # transition phase
     dTrans = np.linspace(d[1], d[2], dist)
@@ -35,8 +36,8 @@ def computeDF(d, f, dim, dx, bc='open1side'):
 
     # mucus phase
     # round for odd numbers
-    dMuc = d[2]*np.ones(dim-18-y)
-    fMuc = f[2]*np.ones(dim-18-y)
+    dMuc = d[2]*np.ones(int(dim-18-y))
+    fMuc = f[2]*np.ones(int(dim-18-y))
 
     # combining segmented profiles
     D = np.concatenate((dCon, dSol, dTrans, dMuc))
@@ -129,7 +130,7 @@ def calcC(cc, t, W=None, T=None, bc='reflective', W10=None, c0=None, Qb=None,
 
 # generally define error functional E
 # additional verbose and debug modi
-def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
+def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,  dist=None,
            debug=False, verb=False):
     '''
     cc and tt arrays with concentration profiles cc[:,i]
@@ -143,8 +144,8 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
     # gathering D and F
     # for segmented D and F analysis
     if bc == 'segmented':
-        d, f = computeDF(d=df[:int(df.size/2)], f=df[int(df.size/2):-1],
-                         dim=100, dx=df[-1])
+        d, f = computeDF(d=df[:int(df.size/2)], f=df[int(df.size/2):],
+                         dim=100, dx=dist)
         bc = 'open1side'  # from here on computation as with open BCs
     else:
         d = df[:int(df.size/2)]
@@ -225,18 +226,17 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,
 
 
 # extra function for optimization process, written for easy parallelization
-def optimization(iterator, DRange, FRange, bnds, cc, tt, DistRange=None,
+def optimization(iterator, DRange, FRange, bnds, cc, tt, Dist=None,
                  deltaX=1, bc='reflective', c0=None, debug=False, verb=False):
 
     dim = cc[:, 0].size
     optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, bc=bc,
-                          c0=c0, debug=debug, verb=verb)
+                          c0=c0, dist=Dist, debug=debug, verb=verb)
 
     ''' quick and dirty implementation, change later on '''
     if bc == 'segmented':
         initVal = np.concatenate((np.ones(3)*DRange[iterator],
-                                  np.ones(3)*FRange,
-                                  np.ones(1)*DistRange))
+                                  np.ones(3)*FRange))
     if bc == 'reflective':
         initVal = np.append(np.ones(dim)*DRange[iterator], np.ones(dim)*FRange)
     elif bc == 'open1side':
@@ -252,7 +252,8 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, DistRange=None,
 
     # saving data from result
     if bc == 'segmented':
-        d = 'd=%s_' % DistRange
+        currentDir = os.getcwd()
+        d = currentDir+'/d='+str(Dist)+'/'
     else:
         d = ''
 
@@ -273,10 +274,7 @@ def optimization(iterator, DRange, FRange, bnds, cc, tt, DistRange=None,
 
     elif bc == 'segmented':
             D = result.x[:3]
-            F = result.x[3:-1]
-            dist = result.x[-1]
-            np.savetxt(d+'Dist_%s.txt' % iterator,
-                       np.ones(1)*dist*deltaX, delimiter=', ')
+            F = result.x[3:]
 
     np.savetxt(d+'D_%s.txt' % iterator, D, delimiter=', ')
     np.savetxt(d+'F_%s.txt' % iterator, F, delimiter=', ')
