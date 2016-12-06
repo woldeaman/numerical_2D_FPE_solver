@@ -14,14 +14,13 @@ save = False
 def main():
     # printing results
     # path for home
-    # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            # 'Mucus/Results/ComputedData/segmented/Positive/')
-    # path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
-    # path for work
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/GitHub/FokkerPlanckModeling/')
-    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+    path = ('/home/amanuelwk/Desktop/retry/')
+    path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
              'Skin/Results/ExperimentalData/')
+    # path for work
+    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/GitHub/FokkerPlanckModeling/')
+    # path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            #  'Skin/Results/ExperimentalData/')
 
     # for plotting gathering experimental data
     cc = np.array([np.concatenate((np.ones(1), np.zeros(70))),
@@ -34,7 +33,7 @@ def main():
     xx = np.arange(dim)
     # number of combinations for different c-profiles used for calculation
     # of the residual vector
-    n = np.binom(int(sp.binom(M, 2)))
+    n = int(sp.binom(M, 2))
 
     # loading result and extracting data for top N runs
     N = 1
