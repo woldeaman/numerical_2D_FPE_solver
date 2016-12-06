@@ -3,18 +3,13 @@
 # mucus experiments by AG Ribbeck
 import numpy as np
 import time
-import functools as ft
 import inputOutput as io
 import FPModel as fp
-from multiprocessing import Pool
-import scipy.interpolate as ip
-import os
 # for debugging
 import sys
 # import matplotlib.pyplot as plt
 
 startTime = time.time()
-parallel = False
 conservation = False
 verbose = True
 
@@ -22,7 +17,7 @@ verbose = True
 def main():
     # path for work
     path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Mucus/Results/ExperimentalData/Ch3_Negative.csv')
+            'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
     # path for home
     # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
     #         'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
@@ -42,52 +37,40 @@ def main():
     # io.plotCon(cc=cc, xx=xx, live=True)
     # sys.exit()
 
-    # finding interface position
-    # index = np.where(abs(xx-100) == np.min(abs(xx - 100)))
-    # print('Size:', xx.size, 'Index:', index)
-    # print(xx[index])
-    # sys.exit()
+    # finding interface bin position and
+    # storing it in order to give it to optimization
+    TransIndex = np.argwhere(abs(xx-100) ==
+                             np.min(abs(xx - 100)))[0, 0].astype(int)
 
-    # setting bounds, D first and F second
-    # bndsD = np.ones(N+1)*np.inf
-    # bndsF = np.ones(N+1)*20
-    # bnds = (np.zeros(2*(N+1)), np.concatenate((bndsD, bndsF)))
-
+    # setting reasonable bounds for F and D
     # changed for segmentation analysis
-    bndsD = np.ones(3)*np.inf
-    bndsF = np.ones(3)*20
-    bnds = (np.zeros((2*3)), np.concatenate((bndsD, bndsF)))
+    bndsDUpper = np.ones(2)*1000
+    bndsFUpper = np.ones(1)*20
+    bndsDLower = np.zeros(2)
+    bndsFLower = -np.ones(1)*20
+    bnds = (np.concatenate((bndsDLower, bndsFLower)),
+            np.concatenate((bndsDUpper, bndsFUpper)))
 
     # setting initial conditions
-    # DInit = (np.random.rand(1)*400)+200
-    DInit = np.linspace(200, 400, 4)
-    FInit = 10
-    transition = np.linspace(0, 36, 1)
+    # DInit = (np.random.rand(512)*400)+200
 
-    for k in range(transition.size):
-        # function with one argument (combined d and f) to optimize
-        optimize = ft.partial(fp.optimization, DRange=DInit, FRange=FInit,
-                              Dist=transition[k], bnds=bnds, cc=cc, tt=tt,
-                              deltaX=deltaX, bc='segmented', c0=c0,
-                              debug=conservation, verb=verbose)
+    FInit = -5
+    # transition = np.arange(0, 37, 2)
+    distances = np.arange(2*TransIndex, (2*TransIndex)+1, 1)
+    print(distances)
+    DInit = np.linspace(0, 400, 4)
 
-        # creating output directories
-        currentDir = os.getcwd()
-        paths = currentDir+'/d='+str(transition[k])
-        os.makedirs(paths)
+    results = np.array([[fp.optimization(DRange=DInit[i]*np.ones(2),
+                                         FRange=FInit*np.ones(1),
+                                         Dist=distances[k], bnds=bnds, cc=cc,
+                                         tt=tt, deltaX=deltaX,
+                                         mode='mucusModel', c0=c0,
+                                         debug=conservation, verb=verbose,
+                                         transition=TransIndex)
+                         for i in range(DInit.size)]
+                        for k in range(distances.size)])
 
-        ###########################
-        # linear and parallel implementation
-        ###########################
-        if parallel:
-            proc = Pool(processes=4)
-            for i in proc.imap_unordered(optimize, range(DInit.size)):
-                print('#%s: Time elapsed is %s s' %
-                      (i, time.time() - startTime))
-                proc.close()
-        else:
-            for i in range(DInit.size):
-                optimize(i)
+    np.save('result.npy', results)
 
 if __name__ == "__main__":
     main()

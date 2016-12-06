@@ -42,12 +42,6 @@ def preProcessing(xx, cc, smoothing=True, order=5, bins=100):
     '''
     profiles = cc
 
-    # taking care of negative concentration values
-    for i in range(profiles[:, 0].size):
-        for j in range(profiles[0, :].size):
-            if (profiles[i, j]) <= 0:
-                profiles[i, j] = 0
-
     # smoothing of concentration profiles
     if smoothing:
         s = [ip.UnivariateSpline(xx, profiles[:, i], s=order)
@@ -55,7 +49,13 @@ def preProcessing(xx, cc, smoothing=True, order=5, bins=100):
         xs = np.linspace(xx[0], xx[-1], bins)
         profiles = np.array([s[i](xs) for i in range(profiles[0, :].size)]).T
 
-    return xx, profiles
+    # taking care of negative concentration values
+    for i in range(profiles[:, 0].size):
+        for j in range(profiles[0, :].size):
+            if (profiles[i, j]) <= 0:
+                profiles[i, j] = 0
+
+    return xs, profiles
 
 
 # plotting concentration profiles for different times
