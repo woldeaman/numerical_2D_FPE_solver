@@ -8,13 +8,36 @@ import scipy.optimize as op
 import sys
 
 
-def computeDX(delta, shape):
+def WMatrixVar(d, f, deltaX):
     '''
-    Function generates dx vector which can be used for WMatrix calculation
-    for the case of variable discretization resolution
+    Integrate this into regular WMatrix computation at some point
     '''
-    dx = delta
-    return dx
+
+    deltaXUp = np.concatenate((np.ones(9)*deltaX[0]**2,
+                               deltaX[1]*(deltaX[0]+deltaX[1],
+                                         ) ))
+    deltaXDown =
+
+    FUp = f - np.roll(f, -1)  # F contributions off-diagonal
+    FDown = f - np.roll(f, 1)
+
+    DUp = d + np.roll(d, -1)  # D contributions off-diagonal
+    DDown = d + np.roll(d, 1)
+
+    # computing off-diagonals (dimensionless)
+    DiagUp = DUp/(2*deltaXUp) * np.exp(-FUp/2)
+    DiagDown = DDown/(2*deltaXDown) * np.exp(-FDown/2)
+
+    DiagUp[-1] = 0  # reflective bc's
+    DiagDown[0] = 0
+
+    # main diagonal is negative sum of off-diagonals
+    DiagMain = -(np.roll(DiagUp, 1) + np.roll(DiagDown, -1))
+
+    # constructing W Matrix from diagonal entries
+    W = np.diag(DiagMain) + np.diag(DiagUp[:-1], 1) + np.diag(DiagDown[1:], -1)
+
+    return W
 
 
 def computeDF(d, f, shape, mode='segments', transiBin=None, dx=None):
@@ -43,13 +66,6 @@ def computeDF(d, f, shape, mode='segments', transiBin=None, dx=None):
             x = np.floor(dist/2).astype(int)
             y = np.ceil(dist/2).astype(int)
 
-        print(x)
-        print(y)
-        print(dist)
-        print(transiBin)
-        print(dim)
-        sys.exit()
-
         # calculating d and f before transition
         DPre = np.array([d[shape[i]] for i in range(transiBin-x)])
         FPre = np.array([f[shape[i]] for i in range(transiBin-x)])
@@ -64,6 +80,9 @@ def computeDF(d, f, shape, mode='segments', transiBin=None, dx=None):
 
         D = np.concatenate((DPre, DTrans, DPost))
         F = np.concatenate((FPre, FTrans, FPost))
+    else:
+        print('Error: Unkown mode for df computation.')
+        sys.exit()
 
     return D, F
 
@@ -163,11 +182,10 @@ def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
     M = cc[0, :].size  # number of concentration profiles
     N = cc[:, 0].size  # number of bins
 
-    # gathering D and F
-    # for segmented D and F analysis
+    # setting up D and F for different models
     if mode == 'mucusModel':
         dPre = df[:2]
-        fPre = np.array([0, df[-1]])
+        fPre = np.array([0, df[-1]])  # setting f0 = 0 as reference
         # total of N+1 bins because of constant c0 BCs
         segments = np.concatenate((np.ones(transition)*0,
                                    np.ones(N+1-transition)*1)).astype(int)
@@ -175,8 +193,13 @@ def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
                          mode='transition', transiBin=transition, dx=dist)
         bc = 'open1side'  # computation with open BCs
     elif mode == 'skinModel':
-        '''figure this out'''
-        # d, f = computeDF()
+        # Total number of fit parameters for this model D = N+2, F = N+1
+        dPre = df[:(N+2)]
+        fPre = np.concatenate((np.zeros(1), df[(N+2):]))
+        segments = np.concatenate((np.ones(10)*0, np.arange(1, N+1),
+                                   np.ones(20)*(N+2))).astype(int)
+        d, f = computeDF(dPre, fPre, shape=segments)
+
         bc = 'reflective'  # computation with reflective BCs
     else:
         print('Computation model unknown.')

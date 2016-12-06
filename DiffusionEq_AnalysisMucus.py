@@ -13,14 +13,13 @@ save = False
 def main():
     # printing results
     # path for home
-    # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            #   'Mucus/Results/ComputedData/segmented/Positive/')
-    # path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
-    # path for work
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/GitHub/FokkerPlanckModeling/')
-    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+    path = ('/home/amanuelwk/Desktop/negative/')
+    path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
              'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+    # path for work
+    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/GitHub/FokkerPlanckModeling/')
+    # path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
 
     # for plotting gathering experimental data
     Cdata = io.readData(path2)
@@ -39,12 +38,13 @@ def main():
     # same conditions as for analysis need to be kept here
     segments = np.concatenate((np.ones(TransIndex)*0,
                                np.ones(dim+1-TransIndex)*1)).astype(int)
-    distances = np.arange(36, 37, 1)
+    distances = np.arange(2*TransIndex, (2*TransIndex)+1, 1)
     n = int(sp.binom(M, 2))
 
     # loading result and extracting data for top N runs
     N = 3
     results = np.load(path+'result.npy')
+
     K = results[:, 0].size  # number of different transition sizes
     I = results[0, :].size  # number of different initial conditions
 
@@ -66,7 +66,7 @@ def main():
 
     D = DF[:, :, 0, :]
     F = DF[:, :, 1, :]
-    
+
     # computing W Matrices for each run
     W = np.array([[fp.WMatrix(D[k, i, :], F[k, i, :], bc='open1side',
                               deltaX=deltaX)[0] for i in range(N)]
