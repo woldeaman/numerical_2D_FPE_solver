@@ -3,18 +3,15 @@
 # mucus experiments by AG Ribbeck
 import numpy as np
 import time
-import functools as ft
 import inputOutput as io
 import FPModel as fp
-from multiprocessing import Pool
 # import scipy.interpolate as ip
 # for debugging
-# import sys
-# import matplotlib.pyplot as plt
+import sys
 
 startTime = time.time()
 parallel = False
-conservation = False
+conservation = True
 verbose = True
 
 
@@ -27,41 +24,37 @@ def main():
     #         'Skin/Results/ExperimentalData/')
 
     # reading profiles
-    data = np.array([np.concatenate((np.ones(1), np.zeros(70))),
-                     io.readData(path+'10min.txt'),
-                     io.readData(path+'100min.txt'),
-                     io.readData(path+'1000min.txt')])
-    cc = data.T
+    cc = np.array([np.concatenate((np.ones(1), np.zeros(70))),
+                   io.readData(path+'10min.txt'),
+                   io.readData(path+'100min.txt'),
+                   io.readData(path+'1000min.txt')]).T
     tt = np.array([0, 600, 6000, 60000])  # t in seconds
     N = cc[:, 0].size  # number of bins
     # deltaX = 1E-6
+    # plotting concentration
+    # io.plotCon(cc[1:, :], live=True)
+    # sys.exit()
 
     # setting bounds, D first and F second
-    bndsD = np.ones(N)*2000
-    bndsF = np.ones(N)*20
-    bnds = (np.zeros(2*(N)), np.concatenate((bndsD, bndsF)))
+    bndsDUpper = np.ones(N)*2000
+    bndsFUpper = np.ones(N)*20
+    bndsDLower = np.zeros(N)
+    bndsFLower = -np.ones(N)*20
+    bnds = (np.concatenate((bndsDLower, bndsFLower)),
+            np.concatenate((bndsDUpper, bndsFUpper)))
 
     # setting initial conditions
-    # DInit = (np.random.rand(4)*1000)
-    DInit = np.linspace(0, 1000, 4)
+    DInit = np.random.rand(3000)*1000
+    # DInit = np.linspace(0, 350, 4)
     FInit = 5
 
-    # function with one argument (combined d and f) to optimize
-    optimize = ft.partial(fp.optimization, DRange=DInit, FRange=FInit,
-                          bnds=bnds, cc=cc, tt=tt, bc='reflective',
-                          debug=conservation, verb=verbose)
+    results = np.array([fp.optimization(DRange=np.concatenate((np.ones(15)*0.0001*DInit[i], np.ones(N-15)*DInit[i])),
+                                        FRange=FInit*np.ones(N), bnds=bnds,
+                                        cc=cc, tt=tt, bc='reflective',
+                                        debug=conservation, verb=verbose)
+                        for i in range(DInit.size)])
 
-    ###########################
-    # linear and parallel implementation
-    ###########################
-    if parallel:
-        proc = Pool(processes=8)
-        for i in proc.imap_unordered(optimize, range(DInit.size)):
-            print('#%s: Time elapsed is %s s' % (i, time.time() - startTime))
-            proc.close()
-    else:
-        for i in range(DInit.size):
-            optimize(i)
+    np.save('result.npy', results)
 
 if __name__ == "__main__":
     main()

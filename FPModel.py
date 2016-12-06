@@ -6,42 +6,64 @@ import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
 import sys
-import os
 
 
-# computing D and F profiles for 3 segments and trasition distances dx
-# as of now with transition segment position at bin 18
-def computeDF(d, f, dim, dx, bc='open1side'):
+def computeDX(delta, shape):
+    '''
+    Function generates dx vector which can be used for WMatrix calculation
+    for the case of variable discretization resolution
+    '''
+    dx = delta
+    return dx
 
-    dist = round(dx)
-    if dist % 2 == 0:
-        x = dist/2
-        y = dist/2
-    else:
-        x = np.floor(dist/2)
-        y = np.ceil(dist/2)
 
-    # for open boundary conditions
-    if bc == 'open1side':
-        dCon = d[0]*np.ones(1)
-        fCon = f[0]*np.ones(1)
+def computeDF(d, f, shape, mode='segments', transiBin=None, dx=None):
+    '''
+    Function generates D and F array for different segments, each with constant
+    d and f and an additional option for linear transition between segments.
+    Shape array with information about segments needs to be given.
+    '''
+    dim = int(shape.size)
 
-    # peptide solution phase
-    dSol = d[1]*np.ones(int(18-x))
-    fSol = f[1]*np.ones(int(18-x))
+    if mode == 'segments':
+        # generating D and F from shape array
+        D = np.array([d[shape[i]] for i in range(shape.size)])
+        F = np.array([f[shape[i]] for i in range(shape.size)])
 
-    # transition phase
-    dTrans = np.linspace(d[1], d[2], dist)
-    fTrans = np.linspace(f[1], f[2], dist)
+    elif (mode == 'transition') and (transiBin is None or dx is None):
+        print('Error: Transition distance and location must be given'
+              'for df computation!')
+        sys.exit()
+    elif mode == 'transition':
+        dist = round(dx)
+        if dist % 2 == 0:
+            x = int(dist/2)
+            y = int(dist/2)
+        else:
+            x = np.floor(dist/2).astype(int)
+            y = np.ceil(dist/2).astype(int)
 
-    # mucus phase
-    # round for odd numbers
-    dMuc = d[2]*np.ones(int(dim-18-y))
-    fMuc = f[2]*np.ones(int(dim-18-y))
+        print(x)
+        print(y)
+        print(dist)
+        print(transiBin)
+        print(dim)
+        sys.exit()
 
-    # combining segmented profiles
-    D = np.concatenate((dCon, dSol, dTrans, dMuc))
-    F = np.concatenate((fCon, fSol, fTrans, fMuc))
+        # calculating d and f before transition
+        DPre = np.array([d[shape[i]] for i in range(transiBin-x)])
+        FPre = np.array([f[shape[i]] for i in range(transiBin-x)])
+
+        # calculating d and f at transition
+        DTrans = np.linspace(d[shape[transiBin-1]], d[shape[transiBin]], dist)
+        FTrans = np.linspace(f[shape[transiBin-1]], f[shape[transiBin]], dist)
+
+        # calculating d and f after transition
+        DPost = np.array([d[shape[i]] for i in range(transiBin+y, dim)])
+        FPost = np.array([f[shape[i]] for i in range(transiBin+y, dim)])
+
+        D = np.concatenate((DPre, DTrans, DPost))
+        F = np.concatenate((FPre, FTrans, FPost))
 
     return D, F
 
@@ -130,8 +152,8 @@ def calcC(cc, t, W=None, T=None, bc='reflective', W10=None, c0=None, Qb=None,
 
 # generally define error functional E
 # additional verbose and debug modi
-def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,  dist=None,
-           debug=False, verb=False):
+def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
+           transition=None, debug=False, verb=False):
     '''
     cc and tt arrays with concentration profiles cc[:,i]
     for time tt[i] and tt[j] > tt[i] if j > i
@@ -143,13 +165,22 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,  dist=None,
 
     # gathering D and F
     # for segmented D and F analysis
-    if bc == 'segmented':
-        d, f = computeDF(d=df[:int(df.size/2)], f=df[int(df.size/2):],
-                         dim=100, dx=dist)
-        bc = 'open1side'  # from here on computation as with open BCs
+    if mode == 'mucusModel':
+        dPre = df[:2]
+        fPre = np.array([0, df[-1]])
+        # total of N+1 bins because of constant c0 BCs
+        segments = np.concatenate((np.ones(transition)*0,
+                                   np.ones(N+1-transition)*1)).astype(int)
+        d, f = computeDF(dPre, fPre, shape=segments,
+                         mode='transition', transiBin=transition, dx=dist)
+        bc = 'open1side'  # computation with open BCs
+    elif mode == 'skinModel':
+        '''figure this out'''
+        # d, f = computeDF()
+        bc = 'reflective'  # computation with reflective BCs
     else:
-        d = df[:int(df.size/2)]
-        f = df[int(df.size/2):]
+        print('Computation model unknown.')
+        sys.exit()
 
     # calculating W and T matrix and extra variables for open BCs
     if bc == 'reflective':
@@ -203,7 +234,7 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,  dist=None,
             print(np.sum(ccComp, 0))
             sys.exit()
 
-    # computing residual vector for both types of BCs
+    # computing residual vector for different models
     n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
     RR = np.zeros((N, n))
 
@@ -218,7 +249,7 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,  dist=None,
     # calculating norm and functional to minimize
     RRn = np.array([al.norm(RR[:, i]) for i in range(n)])
     if (verb):
-        E = np.sum(RRn**2)/(N*n)  # normalized version
+        E = np.sqrt(np.sum(RRn**2)/(N*n))  # normalized version
         # E = np.sum(RRn**2) #non-normalized version
         print(E)
 
@@ -226,57 +257,19 @@ def resFun(df, cc, tt, deltaX=1, bc='reflective', c0=None,  dist=None,
 
 
 # extra function for optimization process, written for easy parallelization
-def optimization(iterator, DRange, FRange, bnds, cc, tt, Dist=None,
-                 deltaX=1, bc='reflective', c0=None, debug=False, verb=False):
+def optimization(DRange, FRange, bnds, cc, tt, Dist=None, deltaX=1,
+                 mode='skinModel', transition=None, c0=None, debug=False,
+                 verb=False):
 
-    dim = cc[:, 0].size
-    optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, bc=bc,
-                          c0=c0, dist=Dist, debug=debug, verb=verb)
+    optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, mode=mode,
+                          c0=c0, transition=transition, dist=Dist, debug=debug,
+                          verb=verb)
 
-    ''' quick and dirty implementation, change later on '''
-    if bc == 'segmented':
-        initVal = np.concatenate((np.ones(3)*DRange[iterator],
-                                  np.ones(3)*FRange))
-    if bc == 'reflective':
-        initVal = np.append(np.ones(dim)*DRange[iterator], np.ones(dim)*FRange)
-    elif bc == 'open1side':
-        initVal = np.append(np.ones(dim+1)*DRange[iterator],
-                            np.ones(dim+1)*FRange)
-
+    initVal = np.concatenate((DRange, FRange))
     # running 5x50 with varied starting points based on initVal
-    DValStart = initVal[0]
     for l in range(5):
         result = op.least_squares(optimize, initVal, bounds=bnds,
                                   max_nfev=50, tr_solver='lsmr')
         initVal = result.x
 
-    # saving data from result
-    if bc == 'segmented':
-        currentDir = os.getcwd()
-        d = currentDir+'/d='+str(Dist)+'/'
-    else:
-        d = ''
-
-    values = open(d+'info_%s.csv' % iterator, 'w')
-    values.write('#, DValue, EValue, #OfEvaluations, Message\n')
-    values.write(str(iterator)+', ' + str(DValStart) + ', ' +
-                 str(result.cost) + ', ' + str(result.nfev) +
-                 ', ' + result.message+'\n')
-    values.close()
-
-    if bc == 'reflective':
-        D = result.x[:dim]
-        F = result.x[dim:]
-
-    elif bc == 'open1side':
-        D = result.x[:dim+1]
-        F = result.x[dim+1:]
-
-    elif bc == 'segmented':
-            D = result.x[:3]
-            F = result.x[3:]
-
-    np.savetxt(d+'D_%s.txt' % iterator, D, delimiter=', ')
-    np.savetxt(d+'F_%s.txt' % iterator, F, delimiter=', ')
-
-    return iterator
+    return result
