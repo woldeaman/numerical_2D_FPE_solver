@@ -6,20 +6,20 @@ import matplotlib.cm as cmx
 import matplotlib.colors as colors
 import scipy.special as sp
 # for debugging
-# import sys
-save = False
+import sys
+save = True
 
 
 def main():
     # printing results
     # path for home
-    path = ('/home/amanuelwk/Desktop/negative/')
-    path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-             'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
-    # path for work
-    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/GitHub/FokkerPlanckModeling/')
-    # path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+    # path = ('/home/amanuelwk/Desktop/negative/')
+    # path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
             #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+    # path for work
+    path = ('/Users/AmanuelWK/Desktop/negative/')
+    path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+             'Mucus/Results/ExperimentalData/Ch3_Negative.csv')
 
     # for plotting gathering experimental data
     Cdata = io.readData(path2)
@@ -35,15 +35,18 @@ def main():
     M = cc[0, :].size  # number of profiles
     TransIndex = np.argwhere(abs(xx-100) ==
                              np.min(abs(xx - 100)))[0, 0].astype(int)
+    '''for compatibality with older version'''
+    TransIndex = 17
     # same conditions as for analysis need to be kept here
     segments = np.concatenate((np.ones(TransIndex)*0,
                                np.ones(dim+1-TransIndex)*1)).astype(int)
-    distances = np.arange(2*TransIndex, (2*TransIndex)+1, 1)
+    distances = np.arange(0, (2*TransIndex)+1, 2)
     n = int(sp.binom(M, 2))
 
     # loading result and extracting data for top N runs
-    N = 3
+    N = 1
     results = np.load(path+'result.npy')
+    results = results[:, :, 0]  # for compatibality with older version
 
     K = results[:, 0].size  # number of different transition sizes
     I = results[0, :].size  # number of different initial conditions
@@ -59,6 +62,7 @@ def main():
     FRes = np.array([[np.array([0, results[k, indices[k, i]].x[-1]])
                       for i in range(N)]
                      for k in range(K)])
+
     DF = np.array([[fp.computeDF(DRes[k, i, :], FRes[k, i, :],
                                  shape=segments, mode='transition',
                                  transiBin=TransIndex, dx=distances[k])
@@ -71,6 +75,7 @@ def main():
     W = np.array([[fp.WMatrix(D[k, i, :], F[k, i, :], bc='open1side',
                               deltaX=deltaX)[0] for i in range(N)]
                   for k in range(K)])
+
     W10 = np.array([[fp.WMatrix(D[k, i, :], F[k, i, :], bc='open1side',
                                 deltaX=deltaX)[1] for i in range(N)]
                     for k in range(K)])
@@ -80,6 +85,19 @@ def main():
                                  bc='open1side', W10=W10[k, i], c0=c0)
                         for j in range(M)] for i in range(N)]
                       for k in range(K)])
+
+    # plotting Error
+    EMin = np.array([np.min(Error[k, :]) for k in range(K)])
+    ESTD = np.array([np.std(Error[k, :]) for k in range(K)])
+
+    plt.figure(-1)
+    plt.errorbar(distances, EMin, yerr=ESTD)
+    plt.xlabel('Transition Distance [bins]')
+    plt.ylabel('Minimal Error [$\pm$ µM]')
+    if save:
+        plt.savefig('/Users/AmanuelWK/Desktop/figures/error.pdf')
+    else:
+        plt.show()
 
     # plotting results
     cm = plt.get_cmap('hsv')
@@ -98,7 +116,7 @@ def main():
                       % (Error[k, indices[k, i]], str(distances[k]),
                          str(indices[k, i])))
             if save:
-                plt.savefig('/Users/AmanuelWK/Desktop/d=%s_#%s_D.pdf'
+                plt.savefig('/Users/AmanuelWK/Desktop/figures/d=%s_#%s_D.pdf'
                             % (str(distances[k]), str(indices[k, i])))
             else:
                 plt.show()
@@ -113,12 +131,12 @@ def main():
                       % (Error[k, indices[k, i]], str(distances[k]),
                          str(indices[k, i])))
             if save:
-                plt.savefig('/Users/AmanuelWK/Desktop/d=%s_#%s_F.pdf'
+                plt.savefig('/Users/AmanuelWK/Desktop/figures/d=%s_#%s_F.pdf'
                             % (str(distances[k]), str(indices[k, i])))
             else:
                 plt.show()
 
-            plt.figure(i+2*K)
+            plt.figure(i+k+2*K)
             for j in range(M):
                 colorVal = scalarMap.to_rgba(j)
                 plt.gca().set_xlim(left=xx[0])
@@ -134,9 +152,9 @@ def main():
                          str(indices[k, i])))
             plt.legend()
             if save:
-                plt.savefig('/Users/AmanuelWK/Desktop/d=%s_#%s_profiles.pdf'
-                            % (Error[k, indices[k, i]], str(distances[k]),
-                               str(indices[k, i])))
+                plt.savefig('/Users/AmanuelWK/Desktop/figures/'
+                            'd=%s_#%s_profiles.pdf' % (str(distances[k]),
+                                                       str(indices[k, i])))
             else:
                 plt.show()
 

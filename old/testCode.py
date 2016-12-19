@@ -3,83 +3,71 @@
 # mucus experiments by AG Ribbeck
 import numpy as np
 import time
-import functools as ft
 import inputOutput as io
 import FPModel as fp
-from multiprocessing import Pool
-import scipy.interpolate as ip
+# import scipy.interpolate as ip
+# for debugging
 import sys
-import matplotlib.pyplot as plt
-import scipy.linalg as al
-import numpy.linalg as la
 
 startTime = time.time()
-parallel = True
+conservation = True
+verbose = True
 
 
-D = np.append(np.ones(2)*400, np.ones(1)*250)
-F = np.append(np.ones(2)*15, np.ones(1)*10)
+def main():
+    # path for work
+    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            # 'Skin/Results/ExperimentalData/')
+    path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            'Skin/Results/ExperimentalData/')
 
-W, W10 = fp.WMatrixPart(D, F)
-# W = np.array([[fp.WMatrixOld(i, j, D, F, 100) for i in range(100)] for j in range(100)])
-# print(W.shape)
-# sys.exit()
+    # generating test profiles
+    c0 = np.concatenate((np.ones(1), np.zeros(99)))
+    tt = np.array([0, 600, 6000, 60000])  # t in seconds
 
-cc0 = np.append(np.ones(1)*4, np.zeros(24))
-# print(cc0)
-# sys.exit()
+    # test F and D shape
+    dPre = np.concatenate((np.ones(1)*200, np.ones(80)*200, np.ones(1)*200))
+    fPre = np.concatenate((np.zeros(1), np.ones(80)*(-5), np.ones(1)*(-5)))
+    segments = np.concatenate((np.ones(10)*0, np.arange(1, 81),
+                               np.ones(10)*(81))).astype(int)
+    d, f = fp.computeDF(dPre, fPre, shape=segments)
+    deltaX = np.array([61, 1, 3076.38])
+    deltaXX = np.concatenate((np.ones(6)*deltaX[0],
+                              np.ones(1)*(deltaX[0]+deltaX[1])/2,
+                              np.ones(80+6)*deltaX[1],
+                              np.ones(1)*(deltaX[1]+deltaX[2])/2,
+                              np.ones(7)*deltaX[2]))
+    '''debugging'''
+    deltaXX = np.ones(101)
+    W = fp.WMatrixVar(d, f, 80, deltaXX)
 
-c0 = 4
-tt = np.array([0, 10, 20, 30, 40, 50])
-b = np.append(np.ones(1)*c0*W10, np.zeros(24))
-Qb = np.dot(al.inv(W), b)
-T = al.expm(W)
+    cc = np.array([fp.calcC(c0, tt[i], W=W) for i in range(tt.size)])
+    cc.shape()
+    sys.exit()
+    io.plotCon(cc)
 
-# print(np.dot(al.expm(W*tt[1]), cc0))
-# ccRes = np.array([np.dot(al.expm(W*tt[i]), cc0) for i in range(tt.size)])
-ccRes = np.array([fp.calcC(cc=cc0, t=tt[i], T=T, Qb=Qb, bc='open1side') for i in range(tt.size)])
-ccRes = ccRes.T
+    # setting bounds, D first and F second
+    bndsDUpper = np.ones(82)*2000
+    bndsFUpper = np.ones(81)*20
+    bndsDLower = np.zeros(82)
+    bndsFLower = -np.ones(81)*20
+    bnds = (np.concatenate((bndsDLower, bndsFLower)),
+            np.concatenate((bndsDUpper, bndsFUpper)))
 
-xx = np.arange(ccRes[:, 0].size)
+    # setting initial conditions
+    DInit = np.random.rand(8)*1000
+    # DInit = np.linspace(0, 350, 32)
+    FInit = -5
 
-s = [ip.UnivariateSpline(xx, ccRes[:, i], s=5) for i in range(ccRes[0, :].size)]
-xs = np.linspace(xx[0], xx[-1], 25)
-ccRes = np.array([s[i](xs) for i in range(ccRes[0, :].size)]).T
-xx = xs
-for i in range(tt.size):
-    plt.plot(ccRes[:, i])
-    plt.show()
+    results = np.array([fp.optimization(DRange=np.ones(82)*DInit[i],
+                                        FRange=np.ones(81)*FInit, bnds=bnds,
+                                        cc=cc, tt=tt, mode='skinModel',
+                                        debug=conservation, verb=verbose, M=tt.size,
+                                        N=80)
+                        for i in range(DInit.size)])
 
-np.savetxt('cc.txt', ccRes, delimiter=', ')
+    np.save('result.npy', results)
 
-bndsD = np.ones(3)*np.inf
-bndsF = np.ones(3)*20
-bnds = (np.zeros(2*(3)), np.concatenate((bndsD, bndsF)))
-
-DInit = (np.random.rand(4)*150)+250
-FInit = 10
-
-optimize = ft.partial(fp.optimization, DRange=DInit, FRange=FInit,
-                      bnds=bnds, cc=ccRes, tt=tt, bc='segmented', c0=c0,
-                      debug=False, verb=True)
-
-
-###########################
-# linear and parallel implementation
-###########################
-if parallel:
-    proc = Pool(processes=4)
-    for i in proc.imap_unordered(optimize, range(DInit.size)):
-        print('#%s: Time elapsed is %s s' % (i, time.time() - startTime))
-        proc.close()
-else:
-    for i in range(DInit.size):
-        optimize(i)
-
-
-# io.plotCon(ccRes)
-
-# for i in range(tt.size):
-    # plt.axis([0, 100, 0, 4])
-    # plt.plot(ccRes[i, :])
-    # plt.show()
+if __name__ == "__main__":
+    main()
+    print("Execution time is: %f seconds" % (time.time() - startTime))

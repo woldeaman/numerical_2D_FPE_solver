@@ -57,7 +57,6 @@ def main():
     FInit = -5
     # transition = np.arange(0, 37, 2)
     distances = np.arange(2*TransIndex, (2*TransIndex)+1, 1)
-    print(distances)
     DInit = np.linspace(0, 400, 4)
 
     results = np.array([[fp.optimization(DRange=DInit[i]*np.ones(2),
