@@ -10,7 +10,6 @@ import FPModel as fp
 import sys
 
 startTime = time.time()
-parallel = False
 conservation = True
 verbose = True
 
@@ -21,37 +20,40 @@ def main():
             'Skin/Results/ExperimentalData/')
     # path for home
     # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-    #         'Skin/Results/ExperimentalData/')
+            # 'Skin/Results/ExperimentalData/')
 
     # reading profiles
-    cc = np.array([np.concatenate((np.ones(1), np.zeros(70))),
-                   io.readData(path+'10min.txt'),
-                   io.readData(path+'100min.txt'),
-                   io.readData(path+'1000min.txt')]).T
+    cc = np.array([np.concatenate((np.ones(10)*0.0025, np.zeros(90))),
+                   io.readData(path+'p10min.txt')[:73],
+                   io.readData(path+'p100min.txt')[:80],
+                   io.readData(path+'p1000min.txt')[:80]]).T
+
     tt = np.array([0, 600, 6000, 60000])  # t in seconds
-    N = cc[:, 0].size  # number of bins
-    # deltaX = 1E-6
-    # plotting concentration
-    # io.plotCon(cc[1:, :], live=True)
-    # sys.exit()
+    N = max([cc[i].size for i in range(1, cc.size)])  # number of bins
+    # computing discretization lengths
+    X2 = 1  # discretization length in epidermis is 1µm
+    X1 = (400-(3.5*X2))/6.5  # transition between discretizations at bin 7
+    X3 = (20000-(3.5*X2))/6.5  # transition between discretizations at bin 83
+    deltaX = np.array([X1, X2, X3])
 
     # setting bounds, D first and F second
-    bndsDUpper = np.ones(N)*2000
-    bndsFUpper = np.ones(N)*20
-    bndsDLower = np.zeros(N)
-    bndsFLower = -np.ones(N)*20
+    bndsDUpper = np.ones(N+2)*2000
+    bndsFUpper = np.ones(N+1)*20
+    bndsDLower = np.zeros(N+2)
+    bndsFLower = -np.ones(N+1)*20
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     # setting initial conditions
-    DInit = np.random.rand(3000)*1000
-    # DInit = np.linspace(0, 350, 4)
-    FInit = 5
+    DInit = np.random.rand(30)*350
+    # DInit = np.linspace(0, 350, 32)
+    FInit = -5
 
-    results = np.array([fp.optimization(DRange=np.concatenate((np.ones(15)*0.0001*DInit[i], np.ones(N-15)*DInit[i])),
-                                        FRange=FInit*np.ones(N), bnds=bnds,
-                                        cc=cc, tt=tt, bc='reflective',
-                                        debug=conservation, verb=verbose)
+    results = np.array([fp.optimization(DRange=np.ones(N+2)*DInit[i],
+                                        FRange=np.ones(N+1)*FInit, bnds=bnds,
+                                        cc=cc, tt=tt, mode='skinModel',
+                                        debug=conservation, verb=verbose,
+                                        deltaX=deltaX)
                         for i in range(DInit.size)])
 
     np.save('result.npy', results)

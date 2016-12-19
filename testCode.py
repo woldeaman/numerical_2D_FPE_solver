@@ -18,33 +18,42 @@ def main():
     # path for work
     # path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
             # 'Skin/Results/ExperimentalData/')
-    path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Skin/Results/ExperimentalData/')
+    # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            # 'Skin/Results/ExperimentalData/')
 
     # generating test profiles
-    c0 = np.concatenate((np.ones(1), np.zeros(99)))
-    tt = np.array([0, 600, 6000, 60000])  # t in seconds
+    c0 = np.concatenate((np.ones(10)*0.0025, np.zeros(90)))
+    tt = np.array([0, 6, 60, 600])  # t in seconds
 
     # test F and D shape
-    dPre = np.concatenate((np.ones(1)*200, np.ones(80)*200, np.ones(1)*200))
-    fPre = np.concatenate((np.zeros(1), np.ones(80)*(-5), np.ones(1)*(-5)))
+    dPre = np.concatenate((np.ones(1)*200, np.ones(80)*200, np.ones(1)*100))
+    fPre = np.concatenate((np.zeros(1), np.ones(80), np.ones(1)))
     segments = np.concatenate((np.ones(10)*0, np.arange(1, 81),
                                np.ones(10)*(81))).astype(int)
     d, f = fp.computeDF(dPre, fPre, shape=segments)
     deltaX = np.array([61, 1, 3076.38])
-    deltaXX = np.concatenate((np.ones(6)*deltaX[0],
+    deltaXX = np.concatenate((np.ones(7)*deltaX[0],
+                              np.ones(86)*deltaX[1],
+                              np.ones(8)*deltaX[2]))
+    # '''debugging'''
+    # deltaXX = np.ones(101)
+    W = fp.WMatrixVar(d, f, 80, deltaXX)
+    # W = fp.WMatrix(d, f)
+
+    ccRes = np.array([fp.calcC(c0, tt[i], W=W)[11:91-i*2] for i in range(tt.size)]).T
+
+    cc = np.array([c0, ccRes[1], ccRes[2], ccRes[3]])
+
+    deltaXC = np.concatenate((np.ones(6)*deltaX[0],
                               np.ones(1)*(deltaX[0]+deltaX[1])/2,
-                              np.ones(80+6)*deltaX[1],
+                              np.ones(80+5)*deltaX[1],
                               np.ones(1)*(deltaX[1]+deltaX[2])/2,
                               np.ones(7)*deltaX[2]))
-    '''debugging'''
-    deltaXX = np.ones(101)
-    W = fp.WMatrixVar(d, f, 80, deltaXX)
+    # deltaXC = deltaXX[:-1]
 
-    cc = np.array([fp.calcC(c0, tt[i], W=W) for i in range(tt.size)])
-    cc.shape()
-    sys.exit()
-    io.plotCon(cc)
+    # io.plotCon(cc)
+    # print([cc[i].shape for i in range(cc.size)])
+    # sys.exit()
 
     # setting bounds, D first and F second
     bndsDUpper = np.ones(82)*2000
@@ -55,7 +64,7 @@ def main():
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     # setting initial conditions
-    DInit = np.random.rand(8)*1000
+    DInit = np.random.rand(4)*1000
     # DInit = np.linspace(0, 350, 32)
     FInit = -5
 
