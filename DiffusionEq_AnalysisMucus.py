@@ -6,7 +6,7 @@ import matplotlib.cm as cmx
 import matplotlib.colors as colors
 import scipy.special as sp
 # for debugging
-import sys
+# import sys
 save = True
 
 
@@ -17,9 +17,11 @@ def main():
     # path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
             #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
     # path for work
-    path = ('/Users/AmanuelWK/Desktop/negative/')
+    # path for data to be analyzed
+    path = ('/Users/AmanuelWK/Desktop/transitionOneSided/positive/')
+    # path for experimental data to be compared to (same charge as data)
     path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-             'Mucus/Results/ExperimentalData/Ch3_Negative.csv')
+             'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
 
     # for plotting gathering experimental data
     Cdata = io.readData(path2)
@@ -35,8 +37,10 @@ def main():
     M = cc[0, :].size  # number of profiles
     TransIndex = np.argwhere(abs(xx-100) ==
                              np.min(abs(xx - 100)))[0, 0].astype(int)
-    '''for compatibality with older version'''
-    TransIndex = 17
+    '''only needed for compatibality with older version'''
+    # TransIndex = 17
+    '''only needed for compatibality with older version'''
+
     # same conditions as for analysis need to be kept here
     segments = np.concatenate((np.ones(TransIndex)*0,
                                np.ones(dim+1-TransIndex)*1)).astype(int)
@@ -44,9 +48,9 @@ def main():
     n = int(sp.binom(M, 2))
 
     # loading result and extracting data for top N runs
-    N = 1
+    N = 1  # number of best runs to analyze
     results = np.load(path+'result.npy')
-    results = results[:, :, 0]  # for compatibality with older version
+    # results = results[:, :, 0]  # for compatibality with older version
 
     K = results[:, 0].size  # number of different transition sizes
     I = results[0, :].size  # number of different initial conditions
@@ -106,7 +110,7 @@ def main():
 
     for k in range(K):
         for i in range(N):
-            plt.figure(i)
+            plt.figure(i+k)
             plt.gca().set_xlim(left=xx[0])
             plt.gca().set_xlim(right=xx[-1])
             plt.plot(xx, D[k, i, 1:])
@@ -121,7 +125,7 @@ def main():
             else:
                 plt.show()
 
-            plt.figure(i+K)
+            plt.figure(i+k+K)
             plt.gca().set_xlim(left=xx[0])
             plt.gca().set_xlim(right=xx[-1])
             plt.plot(xx, F[k, i, 1:])

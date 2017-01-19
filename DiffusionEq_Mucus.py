@@ -6,7 +6,7 @@ import time
 import inputOutput as io
 import FPModel as fp
 # for debugging
-import sys
+# import sys
 # import matplotlib.pyplot as plt
 
 startTime = time.time()
@@ -17,7 +17,7 @@ verbose = True
 def main():
     # path for work
     path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+            'Mucus/Results/ExperimentalData/Ch3_Negative.csv')
     # path for home
     # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
     #         'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
@@ -52,12 +52,11 @@ def main():
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     # setting initial conditions
-    # DInit = (np.random.rand(512)*400)+200
-
+    # DInit = np.linspace(0, 400, 4)
+    # distances = np.arange(0, 37, 2)
     FInit = -5
-    # transition = np.arange(0, 37, 2)
-    distances = np.arange(2*TransIndex, (2*TransIndex)+1, 1)
-    DInit = np.linspace(0, 400, 4)
+    DInit = (np.random.rand(512)*1000)
+    distances = np.arange(0, (2*TransIndex)+1, 2)
 
     results = np.array([[fp.optimization(DRange=DInit[i]*np.ones(2),
                                          FRange=FInit*np.ones(1),
