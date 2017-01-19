@@ -26,18 +26,17 @@ def main():
     tt = np.array([0, 6, 60, 600])  # t in seconds
 
     # test F and D shape
-    dPre = np.concatenate((np.ones(1)*200, np.ones(80)*200, np.ones(1)*100))
-    fPre = np.concatenate((np.zeros(1), np.ones(80), np.ones(1)))
-    segments = np.concatenate((np.ones(10)*0, np.arange(1, 81),
-                               np.ones(10)*(81))).astype(int)
-    d, f = fp.computeDF(dPre, fPre, shape=segments)
+    dPre = np.concatenate((np.ones(100)*100))
+    fPre = np.concatenate((np.zeros(100)))
+    # segments = np.concatenate((np.ones(100)*0)).astype(int)
+    # d, f = fp.computeDF(dPre, fPre, shape=segments)
     deltaX = np.array([61, 1, 3076.38])
     deltaXX = np.concatenate((np.ones(7)*deltaX[0],
                               np.ones(86)*deltaX[1],
                               np.ones(8)*deltaX[2]))
     # '''debugging'''
     # deltaXX = np.ones(101)
-    W = fp.WMatrixVar(d, f, 80, deltaXX)
+    W = fp.WMatrixVar(dPre fPre, 10, deltaXX)
     # W = fp.WMatrix(d, f)
 
     ccRes = np.array([fp.calcC(c0, tt[i], W=W)[11:91-i*2] for i in range(tt.size)]).T

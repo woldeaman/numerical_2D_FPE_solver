@@ -20,27 +20,25 @@ def main():
     path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
              'Skin/Results/ExperimentalData/')
 
+    # reading roberts F and D
     DPre = io.readData(path+'D.txt')
     FPre = io.readData(path+'F.txt')
     d = DPre
     f = FPre
 
-    # D = np.concatenate((np.ones(1)*DPre[0], np.ones(80)*DPre[7:87], np.ones(1)*DPre[-1]))
-    # F = np.concatenate((np.ones(1)*FPre[0], np.ones(80)*FPre[7:87], np.ones(1)*FPre[-1]))
+    # Roberts values for discretization
+    # 7 bins for segment 1 = gel, with 5x deltaX1 and 2x deltaX2
+    # 15 bins for segment 3 = dermis, with 4x deltaX2 and 11x deltaX2
+    X2 = 1  # discretization length in epidermis is 1µm
+    X1 = (400-(2.5*X2))/4.5  # transition between discretizations at bin 5
+    X3 = (20000-(4.5*X2))/10.5  # transition between discretizations at bin N+4
+    deltaX = np.array([X1, X2, X3])
 
-    # segments = np.concatenate((np.ones(10)*0, np.arange(1, 81),
-                            #    np.ones(10)*(81))).astype(int)
-    # d, f = fp.computeDF(D, F, shape=segments)
-    deltaX = np.array([88.33333333333333333333333333, 1, 1904.333333333333333333333333333])
-    # for computation of constant D, F segments
-    # deltaXX = np.concatenate((np.ones(7)*deltaX[0],
-                            #   np.ones(86)*deltaX[1],
-                            #   np.ones(8)*deltaX[2]))
-
+    # values for discretization width along domain
     deltaXX = np.concatenate((np.ones(5)*deltaX[0],
                               np.ones(87)*deltaX[1],
                               np.ones(11)*deltaX[2]))
-
+zai
     W = fp.WMatrixVar(d, f, 80, deltaXX, True)
 
     # print(W[:5, :5])

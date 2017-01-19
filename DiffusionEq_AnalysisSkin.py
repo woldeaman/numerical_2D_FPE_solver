@@ -17,8 +17,10 @@ def main():
     # path = ('/home/amanuelwk/GoogleDrive/PhD/GitHub/FokkerPlanckModeling/')
     # path2 = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
             #  'Skin/Results/ExperimentalData/')
+
     # path for work
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/GitHub/FokkerPlanckModeling/')
+    path = ('/Users/AmanuelWK/Desktop/largeSampling/4/')  # path for data to be analyzed
+    # path for corresponding experimental data
     path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
              'Skin/Results/ExperimentalData/')
 

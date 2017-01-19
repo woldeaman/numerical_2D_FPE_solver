@@ -11,14 +11,19 @@ import sys
 def WMatrixVar(d, f, N, deltaXX, con=False):
     '''
     Integrate this into regular WMatrix computation at some point
+    N - Number of bins in c
+    deltaXX - discretization array (has deltaX for each bin)
+    d, f - diffusivity, free energy
+    con - flag for c-conservation --> W-Matrix check
     '''
 
-    # original values
+    # my original values
     N1 = 8  # start of variable DF calculation
     N2 = N+12  # end of variable DF calculation
 
-    # N1 = 5
-    # N2 = N+N1+3
+    # roberts values
+    # N1 = 5  # bin at wich start of variable DF calculation
+    # N2 = N1+86  # bin at wich end of variable DF calculation
 
     # segment1 with new definition for
     # variable binning in areas of D and F const.
@@ -267,6 +272,7 @@ def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
         d, f = computeDF(dPre, fPre, shape=segments)
         bc = None
         # for computation of constant D, F segments
+        # transition between discretization is within segments at pos. 7
         deltaXX = np.concatenate((np.ones(7)*deltaX[0],
                                   np.ones(N+6)*deltaX[1],
                                   np.ones(8)*deltaX[2]))
@@ -303,16 +309,11 @@ def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
 
         # same check for T matrix
         # if abs(np.sum(np.sum(T, 0))-T[:, 0].size) > T[:, 0].size*1E-1:
-            # print('Error: T Matrix is not row stochatic in rows: \n',
-                #   np.nonzero(abs(np.sum(T, 0)-1) > 1E-1), '\n')
-            # print('Row Sum:\n', np.sum(T, 0), '\n')
-            # print('Total Sum:\n', np.sum(np.sum(T, 0)), '\n')
-            # sys.exit()
-        # deltaXC = np.concatenate((np.ones(1)*deltaX[0]*0.5,
-                                #   np.ones(5)*deltaX[0],
-                                #   np.ones(N+7)*deltaX[1],
-                                #   np.ones(6)*deltaX[2],
-                                #   np.ones(1)*deltaX[2]*0.5))
+        #      print('Error: T Matrix is not row stochatic in rows: \n',
+        #            np.nonzero(abs(np.sum(T, 0)-1) > 1E-1), '\n')
+        #      print('Row Sum:\n', np.sum(T, 0), '\n')
+        #      print('Total Sum:\n', np.sum(np.sum(T, 0)), '\n')
+        #      sys.exit()
 
         deltaXC = np.concatenate((np.ones(6)*deltaX[0],
                                   np.ones(1)*(deltaX[0]+deltaX[1])/2,
@@ -346,7 +347,7 @@ def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
         k = 0
         for i in range(1, M):
             RR[:cc[i].size, k] = cc[i] - calcC(cc[0],
-                                               tt[i], W=W)[11:(cc[i].size+11)]
+                                               tt[i], W=W)[10:(cc[i].size+10)]
             k += 1
 
     else:
