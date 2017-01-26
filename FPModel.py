@@ -247,6 +247,8 @@ def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
     '''
 
     if len(cc.shape) == 1:
+        # catches the case of differently sized concentration profiles
+        # within cc and simply takes maximum as N
         N = np.max(np.array([cc[i].size for i in range(1, cc.size)]))
         M = cc.size
     else:
@@ -265,8 +267,9 @@ def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
         bc = 'open1side'  # computation with open BCs
     elif mode == 'skinModel':
         # Total number of fit parameters for this model D = N+2, F = N+1
-        dPre = df[:(N+2)]
+        dPre = df[:(N+2)]  # take input values from trust region algorithm
         fPre = np.concatenate((np.zeros(1), df[(N+2):]))
+        # defined for keeping d and f constant in certain areas
         segments = np.concatenate((np.ones(10)*0, np.arange(1, N+1),
                                    np.ones(10)*(N+1))).astype(int)
         d, f = computeDF(dPre, fPre, shape=segments)

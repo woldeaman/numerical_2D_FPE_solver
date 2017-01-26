@@ -19,7 +19,7 @@ def main():
             #  'Skin/Results/ExperimentalData/')
 
     # path for work
-    path = ('/Users/AmanuelWK/Desktop/largeSampling/4/')  # path for data to be analyzed
+    path = ('/Users/AmanuelWK/Desktop/testConstBinning/4/')  # path for data to be analyzed
     # path for corresponding experimental data
     path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
              'Skin/Results/ExperimentalData/')
