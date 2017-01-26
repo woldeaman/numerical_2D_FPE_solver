@@ -4,6 +4,7 @@
 import numpy as np
 import time
 import inputOutput as io
+import matplotlib.pyplot as plt
 import FPModel as fp
 # import scipy.interpolate as ip
 # for debugging
@@ -15,64 +16,48 @@ verbose = True
 
 
 def main():
-    # path for work
-    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            # 'Skin/Results/ExperimentalData/')
-    # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            # 'Skin/Results/ExperimentalData/')
 
     # generating test profiles
-    c0 = np.concatenate((np.ones(10)*0.0025, np.zeros(90)))
-    tt = np.array([0, 6, 60, 600])  # t in seconds
+    c0 = np.concatenate((np.ones(10)*0.0025, np.zeros(90))).T
+    tt_Prime = np.array([6, 60, 600])  # time points for which c is to be computed
+    tt = np.array([0, 6, 60, 600])  # time points given to trust region
 
-    # test F and D shape
-    dPre = np.concatenate((np.ones(100)*100))
-    fPre = np.concatenate((np.zeros(100)))
-    # segments = np.concatenate((np.ones(100)*0)).astype(int)
-    # d, f = fp.computeDF(dPre, fPre, shape=segments)
-    deltaX = np.array([61, 1, 3076.38])
-    deltaXX = np.concatenate((np.ones(7)*deltaX[0],
-                              np.ones(86)*deltaX[1],
-                              np.ones(8)*deltaX[2]))
-    # '''debugging'''
-    # deltaXX = np.ones(101)
-    W = fp.WMatrixVar(dPre fPre, 10, deltaXX)
-    # W = fp.WMatrix(d, f)
+    # simply case for constant D and F
+    M = 100  # number of total bins for which c is to be computed
+    dPre = np.ones(M)*100
+    fPre = np.zeros(M)
+    W = fp.WMatrix(dPre, fPre)
+    cc = np.array([c0, fp.calcC(c0, tt_Prime[0], W=W)[10:83],
+                   fp.calcC(c0, tt_Prime[1], W=W)[10:90],
+                   fp.calcC(c0, tt_Prime[2], W=W)[10:90]]).T
 
-    ccRes = np.array([fp.calcC(c0, tt[i], W=W)[11:91-i*2] for i in range(tt.size)]).T
-
-    cc = np.array([c0, ccRes[1], ccRes[2], ccRes[3]])
-
-    deltaXC = np.concatenate((np.ones(6)*deltaX[0],
-                              np.ones(1)*(deltaX[0]+deltaX[1])/2,
-                              np.ones(80+5)*deltaX[1],
-                              np.ones(1)*(deltaX[1]+deltaX[2])/2,
-                              np.ones(7)*deltaX[2]))
-    # deltaXC = deltaXX[:-1]
-
-    # io.plotCon(cc)
-    # print([cc[i].shape for i in range(cc.size)])
+    # check if profiles look reasonable over time
+    # for i in range(cc.size):
+    #     plt.plot(cc[i])
+    #     plt.axis([0, 100, 0, 0.0025])
+    #     plt.show()
     # sys.exit()
 
-    # setting bounds, D first and F second
-    bndsDUpper = np.ones(82)*2000
-    bndsFUpper = np.ones(81)*20
-    bndsDLower = np.zeros(82)
-    bndsFLower = -np.ones(81)*20
+    # now trying to find f and d from generated profiles
+    # setting bounds for f and d for algorithm
+    N = 80  # maximal number of measured points in dermis
+    bndsDUpper = np.ones(N+2)*2000
+    bndsFUpper = np.ones(N+1)*20
+    bndsDLower = np.zeros(N+2)
+    bndsFLower = -np.ones(N+1)*20
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
+    # setting starting conditions
+    DInit = np.random.rand(N+2, 4)*350
+    FInit = -1
+    deltaX = np.ones(3)
 
-    # setting initial conditions
-    DInit = np.random.rand(4)*1000
-    # DInit = np.linspace(0, 350, 32)
-    FInit = -5
-
-    results = np.array([fp.optimization(DRange=np.ones(82)*DInit[i],
-                                        FRange=np.ones(81)*FInit, bnds=bnds,
+    results = np.array([fp.optimization(DRange=np.ones(N+2)*DInit[:, i],
+                                        FRange=np.ones(N+1)*FInit, bnds=bnds,
                                         cc=cc, tt=tt, mode='skinModel',
-                                        debug=conservation, verb=verbose, M=tt.size,
-                                        N=80)
-                        for i in range(DInit.size)])
+                                        debug=conservation, verb=verbose,
+                                        deltaX=deltaX)
+                        for i in range(DInit[0, :].size)])
 
     np.save('result.npy', results)
 
