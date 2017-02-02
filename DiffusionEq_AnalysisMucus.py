@@ -6,8 +6,8 @@ import matplotlib.cm as cmx
 import matplotlib.colors as colors
 import scipy.special as sp
 # for debugging
-# import sys
-save = True
+import sys
+save = False
 
 
 def main():
@@ -18,10 +18,12 @@ def main():
             #  'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
     # path for work
     # path for data to be analyzed
-    path = ('/Users/AmanuelWK/Desktop/transitionOneSided/positive/')
+    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            'Mucus/Results/ComputedData/segmented_final/Negative/'
+            'Data/')
     # path for experimental data to be compared to (same charge as data)
     path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-             'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+             'Mucus/Results/ExperimentalData/Ch3_Negative.csv')
 
     # for plotting gathering experimental data
     Cdata = io.readData(path2)
@@ -38,7 +40,8 @@ def main():
     TransIndex = np.argwhere(abs(xx-100) ==
                              np.min(abs(xx - 100)))[0, 0].astype(int)
     '''only needed for compatibality with older version'''
-    # TransIndex = 17
+    # TransIndex = 17  # for negative peptide
+    # TransIndex = 18  # for positive peptide
     '''only needed for compatibality with older version'''
 
     # same conditions as for analysis need to be kept here
@@ -50,7 +53,9 @@ def main():
     # loading result and extracting data for top N runs
     N = 1  # number of best runs to analyze
     results = np.load(path+'result.npy')
+    '''only needed for compatibality with older version'''
     # results = results[:, :, 0]  # for compatibality with older version
+    '''only needed for compatibality with older version'''
 
     K = results[:, 0].size  # number of different transition sizes
     I = results[0, :].size  # number of different initial conditions
@@ -72,6 +77,8 @@ def main():
                                  transiBin=TransIndex, dx=distances[k])
                     for i in range(N)] for k in range(K)])
 
+    # results for D and F where D[k, i, :] gives D profile for
+    # ith best result at transition distance k
     D = DF[:, :, 0, :]
     F = DF[:, :, 1, :]
 
