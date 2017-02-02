@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
 import numpy as np
-from mpmath import mpf, mpc, pi, sin, tan, exp
 import matplotlib.pyplot as plt
 import functools as ft
 import cmath as cm
@@ -33,14 +32,14 @@ def invertLPT(F_s, f_max, N=512, sigma=1, plotFT=False):
     # plotting spectrum of F_(s) in order to choose best f_max
     if plotFT:
         plt.figure(1)
-        plt.plot(ff[:N/2], FT[:N/2].real, 'b-')  # positive part
-        plt.plot(ff[N/2+1:], FT[N/2+1:].real, 'b-')  # negative part
+        plt.plot(ff[:N//2], FT[:N//2].real, 'b-')  # positive part
+        plt.plot(ff[(N//2)+1:], FT[(N//2)+1:].real, 'b-')  # negative part
         plt.xlabel('Frequency')
         plt.ylabel('Amplitude [real part]')
 
         plt.figure(2)
-        plt.plot(ff[:N/2], FT[:N/2].imag, 'g-')  # positive part
-        plt.plot(ff[N/2+1:], FT[N/2+1:].imag, 'g-')  # negative part
+        plt.plot(ff[:N//2], FT[:N//2].imag, 'g-')  # positive part
+        plt.plot(ff[(N//2)+1:], FT[(N//2)+1:].imag, 'g-')  # negative part
         plt.xlabel('Frequency')
         plt.ylabel('Amplitude [imaginary part]')
         plt.show()
@@ -49,12 +48,19 @@ def invertLPT(F_s, f_max, N=512, sigma=1, plotFT=False):
     IFT = np.fft.ifft(FT, n=N)  # inverse FT
 
     # multiplying by inverse of decaying exponential to obtain original f(t)
+    # # computation in logspac e due to exponential overflow
+    # a, b = np.log(IFT.real), sigma*np.arange(N)*dt
+    # print(np.min(a))
+    # c = a+b
+    # return np.exp(c)
+
     return IFT.real*np.exp(sigma*np.arange(N)*dt)
 
 
 # test function for numerical inversion of laplace transform
 def test_F(s):
-    return 1/(1+s**2)
+    return 4/s
+
 
 # Laplace transform of simplified problem
 def Laplace_simple(s, x):
@@ -64,79 +70,104 @@ def Laplace_simple(s, x):
     F = -1  # F Value from simulation, in kB*T
 
     # rescaled variables
-    c0_Tilde = c0*np.exp(F)
+    c0_Tilde = c0*np.exp(-F)
     x_Tilde = x/np.sqrt(D)
     xE_Tilde = xE/np.sqrt(D)
 
     # Laplace transform
-    return c0_Tilde*(cm.exp(x_Tilde*cm.sqrt(s))/s +
-                     (cm.exp((xE_Tilde-x_Tilde)*cm.sqrt(s))/s -
-                      cm.exp((xE_Tilde+x_Tilde)*cm.sqrt(s))/s) /
-                     (2*cm.cosh(xE_Tilde*cm.sqrt(s))))
+    return c0_Tilde*(cm.cosh((x_Tilde - xE_Tilde)*cm.sqrt(s)) /
+                     (s*cm.cosh(xE_Tilde*cm.sqrt(s))))
+
+
+# Laplace transform of full problem
+def Laplace_full(s, x):
+    # dimensions in mm because of exp overflow in function and in minutes
+    # for less memory consumption of inverse laplace transform
+    c0 = 4  # c0 at left boundary in [µM]
+    xB = 0.1  # interface location in [mm]
+    xE = 0.5  # right end of domain in [mm]
+    # values for positively charged peptide
+    D_Prime = 128.506*60E-6  # D' Value from Simulation, in mm^2/min
+    D = 35.467*60E-6  # D Value from Simulation, in mm^2/min
+    F = -0.971  # F Value from simulation, in kB*T
+
+    # # values for negatively charged peptide
+    # D_Prime = 572.815*60E-6  # D' Value from Simulation, in mm^2/min
+    # D = 107.680*60E-6  # D Value from Simulation, in mm^2/min
+    # F = -0.063  # F Value from simulation, in kB*T
+
+    # rescaled variables
+    delta = np.sqrt(D_Prime/D)
+    k = np.exp(-F)
+
+    # Laplace transform
+    if x < xB:
+        LPT = ((delta * cm.cosh(cm.sqrt(s/D_Prime)*(x-xB)) +
+               k * cm.sinh(cm.sqrt(s/D_Prime)*(x-xB)) *
+               cm.tanh(cm.sqrt(s/D)*(xB-xE))) /
+               (s*(delta * cm.cosh(cm.sqrt(s/D_Prime)*xB) -
+                k * cm.sinh(cm.sqrt(s/D_Prime)*xB) *
+                cm.tanh(cm.sqrt(s/D)*(xB-xE)))))
+
+    else:
+        LPT = ((cm.cosh(cm.sqrt(s/D)*(x-xE)) /
+                cm.cosh(cm.sqrt(s/D)*(xB-xE))) /
+               (s*(cm.cosh(cm.sqrt(s/D_Prime)*xB)/k -
+                cm.sinh(cm.sqrt(s/D_Prime)*xB) *
+                cm.tanh(cm.sqrt(s/D)*(xB-xE))/delta)))
+
+    return c0*LPT
+
 
 def main():
+    # for solution to diffusion problem
+    xE = 0.5  # right end of domain in [mm]
+    # places for which to compute concentration
+    xx = np.linspace(0, xE, num=100)
+    # One Laplace Transform for each x value
+    F_s = np.array([ft.partial(Laplace_full, x=xx[i])
+                    for i in range(xx.size)])
+    # Paramters for inverse FFT
+    N = 2**25  # number of frequency samples
+    f_max = 50  # Nyquist frequency
+    sigma = 1  # real part of laplace variable s, needs to be larger than poles
+    dt = 1/(2*f_max)  # time discretization
+    tt = np.arange(N)*dt  # time vector (for plotting)
+    # for many xx, not storable in one large array, too much memory needed
+    # --> export cc[x_i, tt] for each x_i separately and afterwards combine
+    np.save('time.npy', tt[:1000])
+    for i in range(F_s.size):
+        cc = invertLPT(F_s[i], f_max=f_max, N=N, sigma=sigma,
+                       plotFT=False)
+        np.save('c_x%s.npy' % i, cc[:1000])
+        # only save first 1000 entries, corresponding to 20 min of signal
+        # no more is needed, as experiments go as far as 15 min
 
-    N = 2**20
-    f_max = 8
-    sigma = 1
-    dt = 1/(2*f_max)
-    tt = np.arange(N)*dt
-    iLPT = invertLPT(test_F, f_max=f_max, N=N, sigma=sigma, plotFT=False)
+    # combine all exported profiles into one array
+    ccProfiles = np.array([np.load('c_x%s.npy' % i) for i in range(F_s.size)])
+    np.save('cProfiles.npy', ccProfiles)
 
-    plt.plot(tt[:200], iLPT[:200])
-    plt.show()
-    sys.exit()
-
-
-    # # trying numerical inversion through inverse fourier transform
-    # # trying for F(s) = 1/s --> f(t) = 1
-    # # frequencies arranged according to ifft definition of numpy
-    # f_max = 16
-    # f = np.concatenate((np.linspace(0, f_max, num=512),
-    #                     np.linspace(-f_max, 0, num=512)))
-    # N = f.size
-    # dt = 1/(2*f_max)
-    # # real part of s, needs to be larger than the rightmost pole of F(s)
+    # # for test function
+    # N = 2**22
+    # f_max = 20
     # sigma = 1
-    # # computing inverse FT of F(sigma + 2j*pi*f) for inverse LT
-    # FT = np.array([test_F(sigma + 2j*np.pi*f[i])/dt for i in range(f.size)])
-    # IFT = np.fft.ifft(FT)
-    #
-    # # plt.plot(np.arange(0, FT.size/2), FT[:FT.size/2].real)
-    # # plt.plot(np.arange(-FT.size/2+1, 0), FT[FT.size/2+1:].real)
-    # # plt.show()
-    # # plt.plot(np.arange(0, FT.size/2), FT[:FT.size/2].imag)
-    # # plt.plot(np.arange(-FT.size/2+1, 0), FT[FT.size/2+1:].imag)
-    # # plt.show()
-    # # sys.exit()
-    #
-    # plt.plot((IFT.real*np.exp(sigma*np.arange(N)*dt))[:32])
+    # dt = 1/(2*f_max)
+    # tt = np.arange(N)*dt
+    # iLPT = invertLPT(test_F, f_max=f_max, N=N, sigma=sigma, plotFT=True)
+    # plt.plot(tt[:100], iLPT[:100], 'b-')
+    # # plt.plot(tt[:500], sp.erfc(1/np.sqrt(tt[:500])), 'g-')
     # plt.show()
-    # sys.exit()
-    #
-    # plt.plot(IFT.real)
-    # plt.plot(np.exp(-sigma*np.arange(0, N)*dt), 'r--')
+
+    # # testing x = 0
+    # N = 2**22
+    # f_max = 20
+    # sigma = 1
+    # dt = 1/(2*f_max)
+    # tt = np.arange(N)*dt
+    # F_s = ft.partial(Laplace_full, x=0)
+    # iLPT = invertLPT(F_s, f_max=f_max, N=N, sigma=sigma, plotFT=True)
+    # plt.plot(tt[:100], iLPT[:100], 'b-')1
     # plt.show()
-    # sys.exit()
-
-    # # test case of talbot method for inverse laplace transform for F(s)=1/s
-    # # --> f(t) = 1, very unstable for larger t
-    # test = Talbot(test_F)
-    # tt = np.linspace(0, 500, num=100)
-    # func = np.array([test(tt[i]) for i in range(tt.size)])
-    # print(func)
-
-    # trying numerical inversion of Laplace transform
-    # xx = np.linspace(0, 500, num=100)
-    # F_s = np.array([ft.partial(Laplace_simple, x=xx[i]) for i in range(xx.size)])
-    # inversion = np.array([Talbot(F=F_s[i]) for i in range(xx.size)])
-    # tt = np.linspace(1, 600)
-    # f = np.array([[inversion[i](tt[j]) for i in range(xx.size)] for j in range(tt.size)])
-    # print(f.shape)
-    # for i in range(tt.size/10):
-    #     plt.plot(xx, f[i*10, :])
-    #     plt.show()
-
 
 if __name__ == "__main__":
     main()

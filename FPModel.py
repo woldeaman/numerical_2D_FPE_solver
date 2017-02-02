@@ -1,3 +1,6 @@
+# functions and definitions for modeling of
+# one dimensional concentration profiles by the smoluchowski equation
+# in order to obtain diffusivity and free energy profiles
 # -*- coding: utf-8 -*-
 import numpy as np
 import scipy.linalg as al
