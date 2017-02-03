@@ -19,11 +19,11 @@ def main():
     # path for work
     # path for data to be analyzed
     path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Mucus/Results/ComputedData/segmented_final/Negative/'
+            'Mucus/Results/ComputedData/segmented_final/Positive/'
             'Data/')
     # path for experimental data to be compared to (same charge as data)
     path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-             'Mucus/Results/ExperimentalData/Ch3_Negative.csv')
+             'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
 
     # for plotting gathering experimental data
     Cdata = io.readData(path2)
@@ -41,7 +41,7 @@ def main():
                              np.min(abs(xx - 100)))[0, 0].astype(int)
     '''only needed for compatibality with older version'''
     # TransIndex = 17  # for negative peptide
-    # TransIndex = 18  # for positive peptide
+    TransIndex = 18  # for positive peptide
     '''only needed for compatibality with older version'''
 
     # same conditions as for analysis need to be kept here
@@ -54,7 +54,7 @@ def main():
     N = 1  # number of best runs to analyze
     results = np.load(path+'result.npy')
     '''only needed for compatibality with older version'''
-    # results = results[:, :, 0]  # for compatibality with older version
+    results = results[:, :, 0]  # for compatibality with older version
     '''only needed for compatibality with older version'''
 
     K = results[:, 0].size  # number of different transition sizes
@@ -115,7 +115,11 @@ def main():
     cNorm = colors.Normalize(vmin=0, vmax=M)
     scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
 
-    for k in range(K):
+    # for printing analytical solution
+    ccAna = np.load('cProfiles.npy')  # change here
+    xxAna = np.linspace(0, 500, num=100)
+    indexTime = np.array([0, 500, 999, 999])
+    for k in range(K):  # change here K = 1 for printing analytical solution
         for i in range(N):
             plt.figure(i+k)
             plt.gca().set_xlim(left=xx[0])
@@ -148,16 +152,21 @@ def main():
                 plt.show()
 
             plt.figure(i+k+2*K)
+            # for printing analytical solution
+            plt.plot(xxAna, ccAna[:, indexTime[0]],
+                     'r--', label='Analytical')
             for j in range(M):
                 colorVal = scalarMap.to_rgba(j)
                 plt.gca().set_xlim(left=xx[0])
                 plt.gca().set_xlim(right=xx[-1])
                 plt.xlabel('Distance [$\mu m$]')
                 plt.ylabel('Concentration [$\mu M$]')
+                # printing analytical solution
+                plt.plot(xxAna, ccAna[:, indexTime[j]], 'r--')
                 plt.plot(xx, cc[:, j], '--', color=colorVal,
                          label=str(int(tt[j]/60))+'m Experiment')
                 plt.plot(xx, ccRes[k, i, j, :], '-', color=colorVal,
-                         label=str(int(tt[j]/60))+'m Computed')
+                         label=str(int(tt[j]/60))+'m Numerical')
             plt.title('E=%s, d=%s:\n C-Profiles from run #%s'
                       % (Error[k, indices[k, i]], str(distances[k]),
                          str(indices[k, i])))
