@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import scipy.linalg as al
-import numpy.linalg as la
 import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
