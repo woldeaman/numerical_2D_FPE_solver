@@ -87,15 +87,15 @@ def Laplace_full(s, x):
     # parameter values from simulation for case of positively charged peptide
     xB = 0.10742  # interface location in [mm]
     xE = 0.59082  # right end of domain in [mm], for positively charged peptide
-    D_Prime = 128.506*120E-6  # D' Value from Simulation, in mm^2/h
-    D = 35.467*120E-6  # D Value from Simulation, in mm^2/h
+    D_Prime = 128.506*360E-6  # D' Value from Simulation, in mm^2/h
+    D = 35.467*360E-6  # D Value from Simulation, in mm^2/h
     F = -0.971  # F Value from simulation, in kB*T
 
     # # # values for negatively charged peptide
     # xB = 0.10611  # interface location in [mm]
     # xE = 0.61791  # right end of domain in [mm], for negatively charged peptide
-    # D_Prime = 572.815*120E-6  # D' Value from Simulation, in mm^2/h
-    # D = 107.680*120E-6  # D Value from Simulation, in mm^2/h
+    # D_Prime = 572.815*360E-6  # D' Value from Simulation, in mm^2/h
+    # D = 107.680*360E-6  # D Value from Simulation, in mm^2/h
     # F = -0.063  # F Value from simulation, in kB*T
 
     # rescaled variables
