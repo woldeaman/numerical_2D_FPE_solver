@@ -98,13 +98,13 @@ def optimization(DRange, FRange, bnds, cc, tt, Dist=None, deltaX=1,
 def main():
     # path for work
     path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Mucus/Results/ExperimentalData/Ch3_Negative.csv')
+            'Mucus/Data/MucinGels/ExperimentalData/buffer_neg.csv')
     # path for home
     # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
     #         'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
 
     # reading profiles and take only samples for 4 different time points
-    data = io.readData(path)
+    data = io.readData(path, sep=';')  # changed seperator for newest format
     xx = data[:, 0]
     cc = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
 

@@ -34,7 +34,7 @@ def readData(path, sep=',', typo=float):
     return data.astype(typo)  # returns np array
 
 
-def preProcessing(xx, cc, smoothing=True, order=5, bins=100):
+def preProcessing(xx, cc, smoothing=True, order=3, bins=100):
     '''
     Function takes care of negative entries for concentration (set to zero)
     and additionally smoothes profiles or normalizes them (to be implemented).

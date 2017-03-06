@@ -12,7 +12,7 @@ save = False
 
 def main():
     # printing results
-    # # path for Linux
+    # path for Linux
     # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
     #         'Mucus/Results/ComputedData/segmented_final/Positive/'
     #         'Data/')
@@ -21,10 +21,11 @@ def main():
     #          'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
     # path for Mac
     # path for data to be analyzed
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/Mucus/Results/ComputedData/segmented_final/Positive/Data/')
+    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
+            'Mucus/Data/MucinGels/ComputedData/negative/MUC2/')
     # path for experimental data to be compared to (same charge as data)
     path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-             'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+             'Mucus/Data/MucinGels/ComputedData/negative/MUC2/MUC2_neg.csv')
 
     # for plotting gathering experimental data
     Cdata = io.readData(path2)
@@ -43,7 +44,7 @@ def main():
                              np.min(abs(xx - 100)))[0, 0].astype(int)
     '''only needed for compatibality with older version'''
     # TransIndex = 17  # for negative peptide
-    TransIndex = 18  # for positive peptide
+    # TransIndex = 18  # for positive peptide
     '''only needed for compatibality with older version'''
 
     # same conditions as for analysis need to be kept here
@@ -59,7 +60,7 @@ def main():
     N = 1  # number of best runs to analyze
     results = np.load(path+'result.npy')
     '''only needed for compatibality with older version'''
-    results = results[:, :, 0]  # for compatibality with older version
+    # results = results[:, :, 0]  # for compatibality with older version
     '''only needed for compatibality with older version'''
 
     K = results[:, 0].size  # number of different transition sizes
@@ -128,7 +129,7 @@ def main():
     # ccAna = np.load('cProfiles.npy')  # change here
     # xxAna = np.linspace(0, 590.82, num=100)  # for positively charged peptide
     # xxAna = np.linspace(0, 617.91, num=100)  # for negatively charged peptide
-    # indexTime = np.array([10, 500, 1000, -1])  # index for which t = 5,10,15min
+    # indexTime = np.array([10, 500, 1000, -1])  # index for which t = 5,10,15m
     for k in range(K):  # change here K = 1 for printing analytical solution
         for i in range(N):
             # # for plotting D and F in the same figure
@@ -143,7 +144,7 @@ def main():
             # ax2 = ax1.twinx()
             # ax2.plot(xx, D[-1, i, :], 'r-')
             # ax2.set_xlabel('Distance [$\mu m$]')
-            # # Make the y-axis label, ticks and tick labels match the line color
+            # # Make the y-axis label, ticks and tick labels match the line
             # ax2.set_ylabel('Diffusivity [$\mu m^2/s$]', color='r')
             # ax2.tick_params('y', colors='r')
             # # fig.tight_layout()
