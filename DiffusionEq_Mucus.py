@@ -10,12 +10,11 @@ import numpy.linalg as la
 import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
+import argparse as ap
 # for debugging
 # import sys
 
 startTime = time.time()
-conservation = False
-verbose = True
 
 
 # function for computation of residuals, given to optimization function as
@@ -58,18 +57,20 @@ def resFun(df, cc, tt, deltaX=1, c0=None, dist=None, transition=None,
 
     # computing residual vector for mucus model
     n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
-    RR = np.zeros((N, n))
+    RR = np.zeros((n, N))
 
     k = 0
-    for j in range(M):
-        for i in range(M):
+    for i in range(M):
+        for j in range(M):
             if j > i:
-                RR[:, k] = cc[:, j] - fp.calcC(cc[:, i], (tt[j] - tt[i]),
+                RR[k, :] = cc[:, j] - fp.calcC(cc[:, i], (tt[j] - tt[i]),
                                                T=T, Qb=Qb, bc='open1side')
                 k += 1
 
-    # calculating norm and functional to minimize
-    RRn = np.array([al.norm(RR[:, i]) for i in range(RR[0, :].size)])
+    # calculating vector of residuals
+    # RRn = np.array([al.norm(RR[:, i]) for i in range(RR[0, :].size)])
+    RRn = RR.reshape(RR.size)  # alternative definition of residual vector
+
     if (verb):
         E = np.sqrt(np.sum(RRn**2)/(N*n))  # normalized version
         print(E)
@@ -89,19 +90,33 @@ def optimization(DRange, FRange, bnds, cc, tt, Dist=None, deltaX=1,
     # running 5x50 with varied starting points based on initVal
     for l in range(5):
         result = op.least_squares(optimize, initVal, bounds=bnds,
-                                  max_nfev=50, tr_solver='lsmr')
+                                  max_nfev=50, tr_solver='exact')
         initVal = result.x
 
     return result
 
 
 def main():
-    # path for work
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Mucus/Data/MucinGels/ExperimentalData/buffer_neg.csv')
-    # path for home
-    # path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-    #         'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
+    # parsing command line inputs
+    parser = ap.ArgumentParser()
+    parser.add_argument('-v', '--verbose', action='store_true', help='verbose '
+                        'mode prints error during minimization')
+    parser.add_argument('-c', '--conservation', action='store_true',
+                        help='turn on checks for conservation of '
+                        'concentration')
+    parser.add_argument('path', help='define the relative path to '
+                        'data for analysis')
+    args = parser.parse_args()
+    # gathering path to data and setting verbosity and conservation mode
+    path = args.path
+    if args.verbose:
+        verbose = True
+    else:
+        verbose = False
+    if args.conservation:
+        conservation = True
+    else:
+        conservation = False
 
     # reading profiles and take only samples for 4 different time points
     data = io.readData(path, sep=';')  # changed seperator for newest format
