@@ -5,6 +5,7 @@ import FPModel as fp
 import matplotlib.cm as cmx
 import matplotlib.colors as colors
 import scipy.special as sp
+import xlsxwriter as xl
 # for debugging
 # import sys
 save = False
@@ -21,11 +22,10 @@ def main():
     #          'Mucus/Results/ExperimentalData/Ch1_Positive.csv')
     # path for Mac
     # path for data to be analyzed
-    path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Mucus/Data/MucinGels/ComputedData/negative/MUC2/')
+    path = ('/Users/AmanuelWK/Desktop/newAlgo/positive/')
     # path for experimental data to be compared to (same charge as data)
     path2 = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-             'Mucus/Data/MucinGels/ComputedData/negative/MUC2/MUC2_neg.csv')
+             'Mucus/Data/CervicalMucus/ExperimentalData/Ch1_Positive.csv')
 
     # for plotting gathering experimental data
     Cdata = io.readData(path2)
@@ -54,10 +54,10 @@ def main():
     segments = np.concatenate((np.ones(TransIndex+1)*0,
                                np.ones(dim-TransIndex)*1)).astype(int)
     distances = np.arange(0, (2*TransIndex)+1, 2)
-    n = int(sp.binom(M, 2))
+    n = int(sp.binom(M, 2))  # binomial because of counting profile differences
 
     # loading result and extracting data for top N runs
-    N = 1  # number of best runs to analyze
+    N = 10  # number of best runs to analyze
     results = np.load(path+'result.npy')
     '''only needed for compatibality with older version'''
     # results = results[:, :, 0]  # for compatibality with older version
@@ -125,13 +125,15 @@ def main():
     cNorm = colors.Normalize(vmin=1, vmax=M)
     scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)
 
+    L = 1  # top L runs to plot
     # for printing analytical solution
     # ccAna = np.load('cProfiles.npy')  # change here
     # xxAna = np.linspace(0, 590.82, num=100)  # for positively charged peptide
     # xxAna = np.linspace(0, 617.91, num=100)  # for negatively charged peptide
     # indexTime = np.array([10, 500, 1000, -1])  # index for which t = 5,10,15m
-    for k in range(K):  # change here K = 1 for printing analytical solution
-        for i in range(N):
+    for k in range(1):  # change here K = 1 for printing analytical solution
+        k = -1  # for plotting only profiles for largest transition d
+        for i in range(L):
             # # for plotting D and F in the same figure
             # xx = np.concatenate((-np.ones(1)*xx[1], xx))
             # fig, ax1 = plt.subplots()
@@ -211,6 +213,22 @@ def main():
                                                        str(indices[k, i])))
             else:
                 plt.show()
+
+    if save:
+        # saving values of F and D, computed from top 10% of runs for largest d
+        D1 = D[-1, :int(I/10), 0]  # top 10% of runs for D_sol
+        D2 = D[-1, :int(I/10), -1]  # top 10% of runs for D_muc
+        F2 = F[-1, :int(I/10), -1]  # top 10% of runs for F_muc
+        # saving data to excel spreadsheet
+        workbook = xl.Workbook('/Users/AmanuelWK/Desktop/FD_results.xlsx')
+        worksheet = workbook.add_worksheet()
+        bold = workbook.add_format({'bold': True})
+        worksheet.write('A1', 'D_sol', bold)
+        worksheet.write('B1', 'D_muc', bold)
+        worksheet.write('C1', 'F_muc', bold)
+        worksheet.write('A2', str(np.mean(D1))+' +/- '+str(np.std(D1)))
+        worksheet.write('B2', str(np.mean(D2))+' +/- '+str(np.std(D2)))
+        worksheet.write('C2', str(np.mean(F2))+' +/- '+str(np.std(F2)))
 
 if __name__ == "__main__":
     main()

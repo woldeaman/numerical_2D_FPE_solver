@@ -38,7 +38,7 @@ def main():
     deltaXX = np.concatenate((np.ones(5)*deltaX[0],
                               np.ones(87)*deltaX[1],
                               np.ones(11)*deltaX[2]))
-zai
+
     W = fp.WMatrixVar(d, f, 80, deltaXX, True)
 
     # print(W[:5, :5])
@@ -67,9 +67,10 @@ zai
         RR[:cc[i].size, k] = cc[i] - fp.calcC(cc[0], tt[i], W=W)[8:(cc[i].size+8)]
         k += 1
 
-    RRn = np.array([al.norm(RR[:, i]) for i in range(RR[0, :].size)])
-    E = np.sqrt(np.sum((RRn**2)*(np.array([1/73, 1/80, 1/80])))/3)  # normalized version
+    RRn = RR.reshape(RR.size)
+    E = np.sqrt((((np.sum(RRn[:73]**2))/73)+((np.sum(RRn[73:73+80]**2))/80)+((np.sum(RRn[73+80:]**2))/80))/3)  # normalized version
     print(E*600)
+    sys.exit()
 
     ccRes = np.array([fp.calcC(cc[0], tt[j], W=W) for j in range(M)])
     ccRob = np.array([io.readData(path+'10min.txt'),
