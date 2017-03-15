@@ -68,8 +68,7 @@ def resFun(df, cc, tt, deltaX=1, c0=None, dist=None, transition=None,
                 k += 1
 
     # calculating vector of residuals
-    # RRn = np.array([al.norm(RR[:, i]) for i in range(RR[0, :].size)])
-    RRn = RR.reshape(RR.size)  # alternative definition of residual vector
+    RRn = RR.reshape(RR.size)  # residual vector contains all deviations
 
     if (verb):
         E = np.sqrt(np.sum(RRn**2)/(N*n))  # normalized version
@@ -144,7 +143,8 @@ def main():
 
     FInit = -5
     DInit = (np.random.rand(512)*1000)
-    distances = np.arange(0, (2*TransIndex)+1, 2)
+    # for the case of d = 2 we have instant jump, because bin1 = D1, bin2 = D2
+    distances = np.arange((2*TransIndex)+1, 2)
 
     results = np.array([[optimization(DRange=DInit[i]*np.ones(2),
                                       FRange=FInit*np.ones(1),
