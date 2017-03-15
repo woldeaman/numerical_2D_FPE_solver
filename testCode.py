@@ -7,7 +7,7 @@ import inputOutput as io
 import matplotlib.pyplot as plt
 import FPModel as fp
 # import scipy.interpolate as ip
-# for debugging
+# for debugging the files
 import sys
 
 startTime = time.time()
