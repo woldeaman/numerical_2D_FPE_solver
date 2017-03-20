@@ -150,6 +150,8 @@ def main():
     # path for home
     path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
             'Skin/Results/ExperimentalData/')
+    print(path)
+    sys.exit()
 
     # reading profiles
     cc = np.array([np.concatenate((np.ones(10)*0.0025, np.zeros(90))),
