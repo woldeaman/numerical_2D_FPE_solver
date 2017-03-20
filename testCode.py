@@ -3,12 +3,12 @@
 # mucus experiments by AG Ribbeck
 import numpy as np
 import time
-import inputOutput as io
-import matplotlib.pyplot as plt
+# import inputOutput as io
+# import matplotlib.pyplot as plt
 import FPModel as fp
 # import scipy.interpolate as ip
 # for debugging the files
-import sys
+# import sys
 
 startTime = time.time()
 conservation = True
@@ -19,7 +19,8 @@ def main():
 
     # generating test profiles
     c0 = np.concatenate((np.ones(10)*0.0025, np.zeros(90))).T
-    tt_Prime = np.array([6, 60, 600])  # time points for which c is to be computed
+    # time points for which c is to be computed
+    tt_Prime = np.array([6, 60, 600])
     tt = np.array([0, 6, 60, 600])  # time points given to trust region
 
     # simply case for constant D and F
@@ -57,6 +58,7 @@ def main():
                         for i in range(DInit[0, :].size)])
 
     np.save('result.npy', results)
+
 
 if __name__ == "__main__":
     main()

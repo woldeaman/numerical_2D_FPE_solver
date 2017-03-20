@@ -3,7 +3,7 @@ import inputOutput as io
 import FPModel as fp
 import scipy.special as sp
 import argparse as ap
-import os
+# import os
 # for debugging
 # import sys
 
