@@ -49,8 +49,15 @@ def resFun(df, cc, tt, deltaX=1, c0=None, dist=None, transition=None,
 
     # calculating W and T matrix and extra variables for open BCs
     W, W10 = fp.WMatrix(d, f, deltaX, bc='open1side')
-    # computation of WMatrix with open BCs
-    Q = la.inv(W)  # inverse of W
+    # catching singular matrix exception
+    try:
+        Q = la.inv(W)  # inverse of W
+    except la.linalg.LinAlgError:
+        print('Values for which singular Matrix occured: \n')
+        print('D: \n', d, '\n F: \n', f, '\n')
+        print('WMatrix: \n', W)
+        Q = al.inv(W)  # trying different inversion method
+
     b = np.append(c0*W10, np.zeros(N-1))  # extra vector for open BCs
     Qb = np.dot(Q, b)  # product is calculated
     T = al.expm(W)  # storing exponential matrix
@@ -134,7 +141,7 @@ def main():
                              np.min(abs(xx - 100)))[0, 0].astype(int)
     # setting reasonable bounds for F and D
     # changed for segmentation analysis
-    bndsDUpper = np.ones(2)*1000
+    bndsDUpper = np.ones(2)*10000
     bndsFUpper = np.ones(1)*20
     bndsDLower = np.zeros(2)
     bndsFLower = -np.ones(1)*20
@@ -142,9 +149,9 @@ def main():
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     FInit = -5
-    DInit = (np.random.rand(512)*1000)
+    DInit = (np.random.rand(512)*10000)
     # for the case of d = 2 we have instant jump, because bin1 = D1, bin2 = D2
-    distances = np.arange((2*TransIndex)+1, 2)
+    distances = np.arange((2*TransIndex)+1, step=2)
 
     results = np.array([[optimization(DRange=DInit[i]*np.ones(2),
                                       FRange=FInit*np.ones(1),
