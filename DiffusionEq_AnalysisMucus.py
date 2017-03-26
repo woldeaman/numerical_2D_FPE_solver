@@ -7,7 +7,7 @@ import os
 import xlsxwriter as xl
 # import os
 # for debugging
-import sys
+# import sys
 
 '''
 this script saves D, F and computed and experimental concentration profiles
@@ -27,21 +27,28 @@ def main():
     path = args.path
     name = args.name
     # path for mac
-    # savePath = '/Users/AmanuelWK/Desktop/%s/Data/' % name
+    savePath = '/Users/AmanuelWK/Desktop/%s/Data/' % name
     # path for linux
-    savePath = '/home/amanuelwk/Desktop/%s/Data/' % name
+    # savePath = '/home/amanuelwk/Desktop/%s/Data/' % name
     if not os.path.exists(savePath):
         os.makedirs(savePath)
 
-    # ------------------- gathering experimental data ----------------------- #
+    # ------------------- experimental parameters ----------------------- #
     Cdata = io.readData(path+name+'.csv', sep=';')
     xx = Cdata[:, 0]  # first line in document is x-position
     # change number of profiles according to analysis type
-    cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
+    # cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
+    # tt = np.array([0, 300, 600, 900])  # t in seconds
+    # for more profiles analysis
+    cc = np.array([Cdata[:, 1], Cdata[:, 4], Cdata[:, 7], Cdata[:, 11],
+                   Cdata[:, 21], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
+    tt = np.array([0, 30, 60, 100, 200, 300, 600, 900])  # t in seconds
+    # for time shift analysis
+    # cc = np.array([Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
+    # tt = np.array([0, 300, 600])  # t in seconds
     # pre processing of profiles as in optimization script
     xx, cc = io.preProcessing(xx, cc)
     deltaX = abs(xx[0] - xx[1])
-    tt = np.array([0, 300, 600, 900])  # t in seconds
     c0 = 4  # concentration of peptide solution in µM
     dim = cc[:, 0].size  # number of bins, chosen during pre processing
     M = cc[0, :].size  # number of profiles
@@ -51,10 +58,10 @@ def main():
     segments = np.concatenate((np.ones(TransIndex+1)*0,
                                np.ones(dim-TransIndex)*1)).astype(int)
     '''change distances definition for newer simulations'''
-    # distances = np.arange((2*TransIndex)+1, 2)
+    # distances = np.arange(2, (2*TransIndex)+1, step=2)
     distances = np.arange(0, (2*TransIndex)+1, 2)
     '''change to distanceMuM = (distances-1)*deltaX, for newer simulations'''
-    # distanceMuM = np.concatenate((deltaX*np.ones(1), distances*deltaX))
+    # distanceMuM = (distances-1)*deltaX
     distanceMuM = np.concatenate((deltaX*np.ones(1), (distances[1:]-1)*deltaX))
     n = int(sp.binom(M, 2))  # binomial because of counting profile differences
 
@@ -62,8 +69,8 @@ def main():
     results = np.load(path+'result.npy')
     # results = results[:, :, 0]  # for compatibality with older version
     # for compatibality with buffer experiment
-    if "buffer" in name:
-        results = results.reshape((1, results.size))
+    # if "buffer" in name:
+    #     results = results.reshape((1, results.size))
 
     K = results[:, 0].size  # number of different transition sizes
     I = results[0, :].size  # number of different initial conditions
@@ -94,11 +101,11 @@ def main():
                                    dx=distances[indexLayer]))
     else:
         # needed for buffer experiment conditions
-        segments = np.zeros(dim+1).astype(int)
-        DF = np.array([fp.computeDF(DRes[0, 0, :], FRes[0, 0, :],
-                                    shape=segments, mode='segments')])
-        DF = DF.reshape((2, dim+1))
-        distanceMuM = deltaX*np.ones(1)
+        segments = np.zeros(dim+1).astype(int)  # only one D
+        FRes = np.zeros(FRes.shape)  # no F was fitted
+        DF = np.array(fp.computeDF(DRes[0, 0, :], FRes[0, 0, :],
+                                   shape=segments, mode='segments'))
+        # distanceMuM = deltaX*np.ones(1)
 
     D = DF[0, :]
     F = DF[1, :]
