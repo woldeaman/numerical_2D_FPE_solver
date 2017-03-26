@@ -151,7 +151,7 @@ def main():
     FInit = -5
     DInit = (np.random.rand(512)*10000)
     # for the case of d = 2 we have instant jump, because bin1 = D1, bin2 = D2
-    distances = np.arange((2*TransIndex)+1, step=2)
+    distances = np.arange(2, (2*TransIndex)+1, step=2)
 
     results = np.array([[optimization(DRange=DInit[i]*np.ones(2),
                                       FRange=FInit*np.ones(1),
@@ -163,6 +163,7 @@ def main():
                         for k in range(distances.size)])
 
     np.save('result.npy', results)
+
 
 if __name__ == "__main__":
     main()
