@@ -16,6 +16,7 @@ verbose = True
 
 
 def main():
+    ''''does something'''
 
     # generating test profiles
     c0 = np.concatenate((np.ones(10)*0.0025, np.zeros(90))).T

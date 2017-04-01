@@ -1,10 +1,8 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import inputOutput as io
 import argparse as ap
 import plottingScripts as ps
 import os
-# for debugging
 import sys
 
 '''
@@ -24,11 +22,12 @@ def main():
     args = parser.parse_args()
     path = args.path
     name = args.name
-    # folder to save figures in
-    # path for mac
-    figPath = '/Users/AmanuelWK/Desktop/%s/Figures/' % name
-    # path for linux
-    # figPath = '/home/amanuelwk/Desktop/%s/Figures/' % name
+    # folder to save figures in changes depending on system
+    if sys.platform == "darwin":  # folder for mac
+        figPath = '/Users/AmanuelWK/Desktop/%s/Figures/' % name
+    elif sys.platform.startswith("linux"):  # folder for linux
+        figPath = '/home/amanuelwk/Desktop/%s/Figures/' % name
+
     if args.save:
         if not os.path.exists(figPath):
             os.makedirs(figPath)
@@ -45,25 +44,25 @@ def main():
     # saving to seperate arrays
     distanceMuM, EMin, ESTD = eData.T
     D, F = DF.T
-    # for time shift analysis
-    # xx, cc, ccRes = cData[:, 0], cData[:, 1:4], cData[:, 4:]
     # for more profiles analysis
     # xx, cc, ccRes = cData[:, 0], cData[:, 1:9], cData[:, 9:]
     # standart parameters
     xx, cc, ccRes = cData[:, 0], cData[:, 1:5], cData[:, 5:]
-    M = cc[0, :].size  # number of profiles
-    K = distanceMuM.size  # number of different transition distances
+
+    M = cc[0, :].size  # number of different transition distances
     minD = distanceMuM[np.argmin(EMin)]  # optimal transition layer thickness
-    deltaX = xx[1] - xx[0]  # discretization width
     TransIndex = np.argwhere(abs(xx - boundary) ==  # bin clostest to boundary
                              np.min(abs(xx - boundary)))[0, 0].astype(int)
     tt = np.arange(M)*dt  # vectors contains time for profile i
+    tt = np.array([0, 150, 300, 600, 900])  # t in seconds
 
     # ---------------------- plotting figures ---------------------------- #
     # starting with Error over transition layer thickness
-    '''change plotting range here for newer simulations'''
+    # ps.plotMinError(distanceMuM, EMin, ESTD, save=args.save,
+    #                  path=figPath)
+    # deprecated
     ps.plotMinError(distanceMuM[1:], EMin[1:], ESTD[1:], save=args.save,
-                     path=figPath)
+                    path=figPath)
     # for plotting best D and F in the same figure
     ps.plotDF(xx, D, F, save=args.save, path=figPath)
     # plotting concentration profiles for best run
@@ -73,6 +72,7 @@ def main():
     '''
     add option to plot other data from restData array
     '''
+
 
 if __name__ == "__main__":
     main()

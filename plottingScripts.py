@@ -1,18 +1,24 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 # plotting format for plots of minimal error for each transition layer distance
 def plotMinError(distance, Error, ESTD, save=False,
                  path='/Users/AmanuelWK/Desktop/'):
     plt.figure(1)
     plt.gca().set_xlim([0, np.max(distance)])
-    plt.errorbar(distance, Error, yerr=ESTD)
+    plt.errorbar(distance, Error, yerr=[np.zeros(ESTD.size), ESTD])
     plt.xlabel('Transition Layer Thickness d [µm]')
     plt.ylabel('Minimal Error [$\pm$ µM]')
     if save:
         plt.savefig(path+'minError.pdf')
     else:
         plt.show()
+
+
+'''Add function to plot relative difference in min Error
+    over transition layer width'''
+
 
 # plotting format for D and F in the same figure
 def plotDF(xx, D, F, save=False, path='/Users/AmanuelWK/Desktop/'):
@@ -40,6 +46,7 @@ def plotDF(xx, D, F, save=False, path='/Users/AmanuelWK/Desktop/'):
         plt.savefig(path+'bestDF.pdf')
     else:
         plt.show()
+
 
 # for printing analytical solution
 def plotCon(xx, cc, ccRes, tt, TransIndex, layerD=None, save=False,
@@ -69,7 +76,7 @@ def plotCon(xx, cc, ccRes, tt, TransIndex, layerD=None, save=False,
     l1s = []  # for sperate legends
     l2s = []
 
-    colors = ['r', 'm', 'c', 'b']
+    colors = ['r', 'g', 'm', 'c', 'b', 'y', 'k']
     for j in range(M):
         plt.gca().set_xlim(left=-deltaX)
         plt.gca().set_xlim(right=xx[-1])
@@ -78,7 +85,7 @@ def plotCon(xx, cc, ccRes, tt, TransIndex, layerD=None, save=False,
         # printing analytical solution
         # plt.plot(xxAna, ccAna[:, indexTime[j]], 'k-.')
         l1, = plt.plot(xx, cc[:, j], '--', color=colors[j],
-                       label=str(int(tt[j]/60))+'m Experiment')
+                       label='%.2f m Experiment' % float(tt[j]/60))
         # plot computed only for t > 0, otherwise not computed
         l1s.append([l1])
         if j > 0:
@@ -95,6 +102,6 @@ def plotCon(xx, cc, ccRes, tt, TransIndex, layerD=None, save=False,
     plt.gca().add_artist(legend1)
 
     if save:
-        plt.savefig(figPath+'bestProfiles_d=%.2f.pdf' % minD)
+        plt.savefig(path+'bestProfiles.pdf')
     else:
         plt.show()
