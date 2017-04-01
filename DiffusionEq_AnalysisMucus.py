@@ -4,10 +4,10 @@ import FPModel as fp
 import scipy.special as sp
 import argparse as ap
 import os
+import sys
 import xlsxwriter as xl
 # import os
 # for debugging
-# import sys
 
 '''
 this script saves D, F and computed and experimental concentration profiles
@@ -22,30 +22,29 @@ def main():
                         'folder containing result.npy file')
     parser.add_argument('name', help='defines name of experimental'
                         ' concentration data for which analyis was performed')
+    parser.add_argument('-d', '--dsol_const', action='store_true', help='sets '
+                        'flag for Dsol = const. mode')
     args = parser.parse_args()
     # gathering path to data and name of experiment
     path = args.path
     name = args.name
-    # path for mac
-    savePath = '/Users/AmanuelWK/Desktop/%s/Data/' % name
-    # path for linux
-    # savePath = '/home/amanuelwk/Desktop/%s/Data/' % name
+    # folder to save figures in changes depending on system
+    if sys.platform == "darwin":  # folder for linux
+        savePath = '/Users/AmanuelWK/Desktop/%s/Data/' % name
+    elif sys.platform.startswith("linux"):  # folder for mac
+        savePath = '/home/amanuelwk/Desktop/%s/Data/' % name
+
     if not os.path.exists(savePath):
         os.makedirs(savePath)
+
+    '''Add option for active input '''
 
     # ------------------- experimental parameters ----------------------- #
     Cdata = io.readData(path+name+'.csv', sep=';')
     xx = Cdata[:, 0]  # first line in document is x-position
     # change number of profiles according to analysis type
-    # cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
-    # tt = np.array([0, 300, 600, 900])  # t in seconds
-    # for more profiles analysis
-    cc = np.array([Cdata[:, 1], Cdata[:, 4], Cdata[:, 7], Cdata[:, 11],
-                   Cdata[:, 21], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
-    tt = np.array([0, 30, 60, 100, 200, 300, 600, 900])  # t in seconds
-    # for time shift analysis
-    # cc = np.array([Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
-    # tt = np.array([0, 300, 600])  # t in seconds
+    cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
+    tt = np.array([0, 300, 600, 900])  # t in seconds
     # pre processing of profiles as in optimization script
     xx, cc = io.preProcessing(xx, cc)
     deltaX = abs(xx[0] - xx[1])
@@ -58,19 +57,20 @@ def main():
     segments = np.concatenate((np.ones(TransIndex+1)*0,
                                np.ones(dim-TransIndex)*1)).astype(int)
     '''change distances definition for newer simulations'''
-    # distances = np.arange(2, (2*TransIndex)+1, step=2)
-    distances = np.arange(0, (2*TransIndex)+1, 2)
+    distances = np.arange(2, (2*TransIndex)+1, step=2)
+    # deprecated
+    # distances = np.arange(0, (2*TransIndex)+1, 2)
     '''change to distanceMuM = (distances-1)*deltaX, for newer simulations'''
-    # distanceMuM = (distances-1)*deltaX
-    distanceMuM = np.concatenate((deltaX*np.ones(1), (distances[1:]-1)*deltaX))
+    distanceMuM = (distances-1)*deltaX
+    # deprecated
+    # distanceMuM = np.concatenate((deltaX*np.ones(1),
+    #                               (distances[1:]-1)*deltaX))
     n = int(sp.binom(M, 2))  # binomial because of counting profile differences
 
     # -------------------------- loading results --------------------------- #
     results = np.load(path+'result.npy')
+    # deprecated
     # results = results[:, :, 0]  # for compatibality with older version
-    # for compatibality with buffer experiment
-    # if "buffer" in name:
-    #     results = results.reshape((1, results.size))
 
     K = results[:, 0].size  # number of different transition sizes
     I = results[0, :].size  # number of different initial conditions
@@ -86,8 +86,17 @@ def main():
     indexLayer = np.argmin(EMin)
 
     # gathering F and D and subsequently computing corresponding profiles
-    DRes = np.array([[results[k, indices[k, i]].x[:2] for i in range(I)]
-                     for k in range(K)])
+    if args.dsol_const:  # added support for different computational model
+        if "neg" in name:
+            dsol = 101.35  # value of Dsol for negative peptide
+        else:
+            dsol = 99.46  # value of Dsol for positive peptide
+        DRes = np.array([[np.array([dsol, results[k, indices[k, i]].x[0]])
+                          for i in range(I)]
+                         for k in range(K)])  # D-profile with dsol fixed
+    else:
+        DRes = np.array([[results[k, indices[k, i]].x[:2] for i in range(I)]
+                         for k in range(K)])
     FRes = np.array([[np.array([0, results[k, indices[k, i]].x[-1]])
                       for i in range(I)]
                      for k in range(K)])
@@ -117,7 +126,6 @@ def main():
     # computing concentration profiles
     ccRes = np.array([fp.calcC(cc[:, 0], tt[j], W=W, bc='open1side', W10=W10,
                                c0=c0) for j in range(M)]).T
-
     # --------------------------- saving data ------------------------------- #
     # saving error data for plotting
     np.savetxt(savePath+'Error.csv',

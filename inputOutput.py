@@ -6,7 +6,7 @@ import scipy.interpolate as ip
 
 
 # reading data
-def readData(path, sep=',', typo=float):
+def readData(path, sep=',', typo=float, comChar='#'):
     '''
     Function reads data from delimited file in the path location,
     in which is columns are separated by sep and
@@ -27,9 +27,13 @@ def readData(path, sep=',', typo=float):
         reader = csv.reader(file, delimiter=sep)
         if multiCol:
             data = np.array([[row[i] for i in range(len(row))]
-                             for row in reader])
+                             for row in reader if not
+                             any([row[0].startswith(comChar[i])
+                                  for i in range(len(comChar))])])
         else:
-            data = np.array([row[0] for row in reader])
+            data = np.array([row[0] for row in reader if not
+                             any([row[0].startswith(comChar[i])
+                                  for i in range(len(comChar))])])
 
     return data.astype(typo)  # returns np array
 
