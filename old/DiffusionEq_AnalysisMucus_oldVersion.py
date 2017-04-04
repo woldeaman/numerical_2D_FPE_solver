@@ -190,10 +190,10 @@ def main():
 
     L = 1  # top L runs to plot
     # for printing analytical solution
-    # ccAna = np.load('cProfiles.npy')  # change here
-    # xxAna = np.linspace(0, 590.82, num=100)  # for positively charged peptide
-    # xxAna = np.linspace(0, 617.91, num=100)  # for negatively charged peptide
-    # indexTime = np.array([10, 500, 1000, -1])  # index for which t = 5,10,15m
+    ccAna = np.load('cProfiles.npy')  # change here
+    xxAna = np.linspace(0, 590.82, num=100)  # for positively charged peptide
+    xxAna = np.linspace(0, 617.91, num=100)  # for negatively charged peptide
+    indexTime = np.array([10, 500, 1000, -1])  # index for which t = 5,10,15m
     '''change range for newer simulations'''
     for k in range(1, K):  # change here K = 1 for printing analytical solution
         # k = -1  # for plotting only profiles for largest transition d
@@ -226,8 +226,8 @@ def main():
 
             plt.figure(i+k+2*K)
             # for printing analytical solution
-            # plt.plot(xxAna, ccAna[:, indexTime[1]],
-            #          'k-.', label='Analytical')
+            plt.plot(xxAna, ccAna[:, indexTime[1]],
+                     'k-.', label='Analytical')
 
             # plotting shaded area in transition layer and textboxes
             # conditional positions, based on distance vector
