@@ -76,7 +76,7 @@ def plotCon(xx, cc, ccRes, tt, TransIndex, layerD=None, save=False,
     l1s = []  # for sperate legends
     l2s = []
 
-    colors = ['r', 'g', 'm', 'c', 'b', 'y', 'k']
+    colors = ['r', 'm', 'c', 'b', 'y', 'k', 'g']
     for j in range(M):
         plt.gca().set_xlim(left=-deltaX)
         plt.gca().set_xlim(right=xx[-1])

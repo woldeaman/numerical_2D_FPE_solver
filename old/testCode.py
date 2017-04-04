@@ -3,70 +3,63 @@
 # mucus experiments by AG Ribbeck
 import numpy as np
 import time
-import inputOutput as io
+# import inputOutput as io
+# import matplotlib.pyplot as plt
 import FPModel as fp
 # import scipy.interpolate as ip
-# for debugging
-import sys
+# for debugging the files
+# import sys
 
-startTime = time.time()
+START_TIME = time.time()
 conservation = True
 verbose = True
 
 
 def main():
-    # path for work
-    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            # 'Skin/Results/ExperimentalData/')
-    path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Skin/Results/ExperimentalData/')
+    ''''does something'''
 
     # generating test profiles
-    c0 = np.concatenate((np.ones(1), np.zeros(99)))
-    tt = np.array([0, 600, 6000, 60000])  # t in seconds
+    c0 = np.concatenate((np.ones(10)*0.0025, np.zeros(90))).T
+    # time points for which c is to be computed
+    tt_Prime = np.array([6, 60, 600])
+    tt = np.array([0, 6, 60, 600])  # time points given to trust region
 
-    # test F and D shape
-    dPre = np.concatenate((np.ones(1)*200, np.ones(80)*200, np.ones(1)*200))
-    fPre = np.concatenate((np.zeros(1), np.ones(80)*(-5), np.ones(1)*(-5)))
-    segments = np.concatenate((np.ones(10)*0, np.arange(1, 81),
-                               np.ones(10)*(81))).astype(int)
-    d, f = fp.computeDF(dPre, fPre, shape=segments)
-    deltaX = np.array([61, 1, 3076.38])
-    deltaXX = np.concatenate((np.ones(6)*deltaX[0],
-                              np.ones(1)*(deltaX[0]+deltaX[1])/2,
-                              np.ones(80+6)*deltaX[1],
-                              np.ones(1)*(deltaX[1]+deltaX[2])/2,
-                              np.ones(7)*deltaX[2]))
-    '''debugging'''
-    deltaXX = np.ones(101)
-    W = fp.WMatrixVar(d, f, 80, deltaXX)
+    # simply case for constant D and F
+    M = 100  # number of total bins for which c is to be computed
+    dPre = np.ones(M)*10
+    fPre = np.concatenate((np.zeros(M)))
+    W = fp.WMatrix(dPre, fPre)
+    cc = np.array([c0, fp.calcC(c0, tt_Prime[0], W=W),
+                   fp.calcC(c0, tt_Prime[1], W=W),
+                   fp.calcC(c0, tt_Prime[2], W=W)]).T
 
-    cc = np.array([fp.calcC(c0, tt[i], W=W) for i in range(tt.size)])
-    cc.shape()
-    sys.exit()
-    io.plotCon(cc)
+    # check if profiles look reasonable over time
+    # io.plotCon(cc)
+    # sys.exit()
 
-    # setting bounds, D first and F second
-    bndsDUpper = np.ones(82)*2000
-    bndsFUpper = np.ones(81)*20
-    bndsDLower = np.zeros(82)
-    bndsFLower = -np.ones(81)*20
+    # now trying to find f and d from generated profiles
+    # setting bounds for f and d for algorithm
+    N = M  # maximal number of measured points in dermis
+    bndsDUpper = np.ones(N)*2000
+    bndsFUpper = np.ones(N)*20
+    bndsDLower = np.zeros(N)
+    bndsFLower = -np.ones(N)*20
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
+    # setting starting conditions
+    DInit = np.random.rand(N+2, 4)*350
+    FInit = -1
+    deltaX = np.ones(3)
 
-    # setting initial conditions
-    DInit = np.random.rand(8)*1000
-    # DInit = np.linspace(0, 350, 32)
-    FInit = -5
-
-    results = np.array([fp.optimization(DRange=np.ones(82)*DInit[i],
-                                        FRange=np.ones(81)*FInit, bnds=bnds,
+    results = np.array([fp.optimization(DRange=np.ones(N)*DInit[:, i],
+                                        FRange=np.ones(N)*FInit, bnds=bnds,
                                         cc=cc, tt=tt, mode='skinModel',
-                                        debug=conservation, verb=verbose, M=tt.size,
-                                        N=80)
-                        for i in range(DInit.size)])
+                                        debug=conservation, verb=verbose,
+                                        deltaX=deltaX)
+                        for i in range(DInit[0, :].size)])
 
     np.save('result.npy', results)
+
 
 if __name__ == "__main__":
     main()
