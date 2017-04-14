@@ -8,6 +8,7 @@ import sys
 import xlsxwriter as xl
 # import os
 # for debugging
+import sys
 
 '''
 this script saves D, F and computed and experimental concentration profiles
@@ -40,7 +41,7 @@ def main():
     '''Add option for active input '''
 
     # ------------------- experimental parameters ----------------------- #
-    Cdata = io.readData(path+name+'.csv', sep=';')
+    Cdata = io.readData(path+name+'.csv', sep=',')  # change separator accordingly
     xx = Cdata[:, 0]  # first line in document is x-position
     # change number of profiles according to analysis type
     cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
@@ -165,6 +166,7 @@ def main():
     # adjusting cell widths
     worksheet.set_column(0, 5, len('minError [+/- µM]'))
     workbook.close()
+
 
 if __name__ == "__main__":
     main()

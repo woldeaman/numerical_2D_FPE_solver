@@ -54,15 +54,14 @@ def main():
     TransIndex = np.argwhere(abs(xx - boundary) ==  # bin clostest to boundary
                              np.min(abs(xx - boundary)))[0, 0].astype(int)
     tt = np.arange(M)*dt  # vectors contains time for profile i
-    tt = np.array([0, 150, 300, 600, 900])  # t in seconds
 
     # ---------------------- plotting figures ---------------------------- #
     # starting with Error over transition layer thickness
-    # ps.plotMinError(distanceMuM, EMin, ESTD, save=args.save,
-    #                  path=figPath)
+    ps.plotMinError(distanceMuM, EMin, ESTD, save=args.save,
+                     path=figPath)
     # deprecated
-    ps.plotMinError(distanceMuM[1:], EMin[1:], ESTD[1:], save=args.save,
-                    path=figPath)
+    # ps.plotMinError(distanceMuM[1:], EMin[1:], ESTD[1:], save=args.save,
+                    # path=figPath)
     # for plotting best D and F in the same figure
     ps.plotDF(xx, D, F, save=args.save, path=figPath)
     # plotting concentration profiles for best run
