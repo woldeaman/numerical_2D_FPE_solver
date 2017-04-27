@@ -10,8 +10,7 @@ import FPModel as fp
 import inputOutput as io
 
 
-def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
-           transition=None, debug=False, verb=False):
+def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
     '''
     cc and tt arrays with concentration profiles cc[:,i]
     for time tt[i] and tt[j] > tt[i] if j > i
@@ -27,27 +26,19 @@ def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
         M = cc[0, :].size  # number of concentration profiles
         N = cc[:, 0].size  # number of bins
 
-    if mode == 'variable':
-        # pre-processing for d and f vectors
-        # Total number of fit parameters for this model D = N+2, F = N+1
-        # because F[0] is set to zero for reference
-        dPre = df[:(N+2)]  # take input values from trust region algorithm
-        fPre = np.concatenate((np.zeros(1), df[(N+2):]))
-        # defined for keeping d and f constant in certain areas
-        segments = np.concatenate((np.ones(10)*0, np.arange(1, N+1),
-                                   np.ones(10)*(N+1))).astype(int)
-        d, f = fp.computeDF(dPre, fPre, shape=segments)
-        # transition between discretization is within segments at pos. 7
-        # bin discretization widths are stored in deltaXX
-        deltaXX = np.concatenate((np.ones(7)*deltaX[0],
-                                  np.ones(N+6)*deltaX[1],
-                                  np.ones(8)*deltaX[2]))
-        W = fp.WMatrixVar(d, f, N, deltaXX, con=debug)
-    else:
-        d, f = df[:N/2], df[N/2:]
-        W = fp.WMatrix(d, f, deltaX)
-        Qb = None
-
+    # pre-processing for d and f vectors
+    dPre = df[:(N+2)]  # take input values from trust region algorithm
+    fPre = np.concatenate((np.zeros(1), df[(N+2):]))
+    # defined for keeping d and f constant in certain areas
+    segments = np.concatenate((np.zeros(10), np.arange(1, N+1),
+                               np.ones(10)*(N+1))).astype(int)
+    d, f = fp.computeDF(dPre, fPre, shape=segments)
+    # transition between discretization is within segments at pos. 7
+    # bin discretization widths are stored in deltaXX
+    deltaXX = np.concatenate((np.ones(7)*deltaX[0],
+                              np.ones(N+6)*deltaX[1],
+                              np.ones(8)*deltaX[2]))
+    W = fp.WMatrixVar(d, f, N, deltaXX, con=debug)
     T = al.expm(W)
 
     # check for detailed balance and conservation of concentration
@@ -103,57 +94,61 @@ def resFun(df, cc, tt, deltaX=1, mode='skinModel', c0=None,  dist=None,
     for j in range(M):
         for i in range(M):
             if j > i:
-                RR[:, k] = cc[:, j] - fp.calcC(cc[:, i], (tt[j] - tt[i]),
-                                               T=T, Qb=Qb, bc=bc)
+                RR[:, k] = cc[:, j] - fp.calcC(cc[:, i], (tt[j] - tt[i]), T=T,
+                                               bc='reflective')
                 k += 1
 
-    # calculating norm and functional to minimize
-    RRn = np.array([al.norm(RR[:, i]) for i in range(RR[0, :].size)])
+    # calculating vector of residuals
+    RRn = RR.reshape(RR.size)  # residual vector contains all deviations
+
     if (verb):
         E = np.sqrt(np.sum(RRn**2)/(N*n))  # normalized version
-        '''needs to be changed for variable c-profile lengths'''
-        # E = np.sum(RRn**2) #non-normalized version
         print(E)
 
     return RRn
 
 
 # extra function for optimization process, written for easy parallelization
-def optimization(DRange, FRange, bnds, cc, tt, Dist=None, deltaX=1,
-                 mode='skinModel', transition=None, c0=None, debug=False,
+def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, debug=False,
                  verb=False):
 
-    optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, mode=mode,
-                          c0=c0, transition=transition, dist=Dist, debug=debug,
+    optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, debug=debug,
                           verb=verb)
 
     initVal = np.concatenate((DRange, FRange))
     # running 5x50 with varied starting points based on initVal
     for l in range(5):
         result = op.least_squares(optimize, initVal, bounds=bnds,
-                                  max_nfev=50, tr_solver='lsmr')
+                                  max_nfev=50, tr_solver='exact')
         initVal = result.x
 
     return result
 
 
 def main():
-    debug = True  # if True additional proof-checks will be perfomed throughout
-    verbose = True  # prints computed error after each function evaluation
-    mode = 'constant'
-    # constant or variable binning, if variable binning, discretization
-    # needs to be given for each bin in form of a vector deltaXX
+    #----------------- parsing command line inputs --------------------------#
+    parser = ap.ArgumentParser()
+    parser.add_argument('-v', '--verbose', action='store_true', help='verbose '
+                        'mode prints error during minimization')
+    parser.add_argument('-c', '--conservation', action='store_true',
+                        help='turn on checks for conservation of '
+                        'concentration')
+    parser.add_argument('path', help='define the relative path to '
+                        'data for analysis')
+    args = parser.parse_args()
+    # gathering path to data and setting verbosity and conservation mode
+    path = args.path
+    if args.verbose:
+        verbose = True
+    else:
+        verbose = False
+    if args.conservation:
+        conservation = True
+    else:
+        conservation = False
+    #----------------- parsing command line inputs --------------------------#
 
-    # path for work
-    # path = ('/Users/AmanuelWK/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-    #         'Skin/Results/ExperimentalData/')
-    # path for home
-    path = ('/home/amanuelwk/GoogleDrive/PhD/Projects/FokkerPlanckModeling/'
-            'Skin/Results/ExperimentalData/')
-    print(path)
-    sys.exit()
-
-    # reading profiles
+    #---------------------------- reading profiles --------------------------#
     cc = np.array([np.concatenate((np.ones(10)*0.0025, np.zeros(90))),
                    io.readData(path+'p10min.txt')[:73],
                    io.readData(path+'p100min.txt')[:80],
@@ -167,7 +162,9 @@ def main():
     X1 = (400-(3.5*X2))/6.5  # transition between discretizations at bin 7
     X3 = (20000-(3.5*X2))/6.5  # transition between discretizations at bin 83
     deltaX = np.array([X1, X2, X3])
+    #---------------------------- reading profiles --------------------------#
 
+    #--------------------- starting ls-optimization --------------------------#
     # setting bounds, D first and F second
     # there are a total of 2N+3 fit parameters,
     # N+2 for D (N in epidermis and one for gel and dermis)
@@ -195,11 +192,11 @@ def main():
 
     results = np.array([optimization(DRange=DInit[:, i]*np.ones(N+2),
                                      FRange=FInit*np.ones(N+1), bnds=bnds,
-                                     cc=cc, tt=tt, mode=mode,
-                                     debug=debug, verb=verbose,
-                                     deltaX=deltaX)
+                                     cc=cc, tt=tt, debug=conservation,
+                                     verb=verbose, deltaX=deltaX)
                         for i in range(DInit.size)])
     np.save('result.npy', results)
+    #--------------------- starting ls-optimization --------------------------#
 
 if __name__ == "__main__":
     startTime = time.time()

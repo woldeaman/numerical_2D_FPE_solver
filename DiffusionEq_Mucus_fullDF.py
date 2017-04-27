@@ -94,7 +94,7 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, debug=False,
 
 
 def main():
-    # parsing command line inputs
+    #----------------- parsing command line inputs --------------------------#
     parser = ap.ArgumentParser()
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose '
                         'mode prints error during minimization')
@@ -115,6 +115,7 @@ def main():
     else:
         conservation = False
 
+    #--------------- reading and pre-processing profiles --------------------#
     # reading profiles and take only samples for 4 different time points
     data = io.readData(path, sep=',')  # change seperator according to format
     xx = data[:, 0]
@@ -126,6 +127,8 @@ def main():
     deltaX = abs(xx[0] - xx[1])
     tt = np.array([0, 300, 600, 900])  # t in seconds
     c0 = 4  # concentration of peptide solution in µM
+    #--------------- reading and pre-processing profiles --------------------#
+
 
     # setting reasonable bounds for F and D
     DBound = 1000
@@ -140,7 +143,7 @@ def main():
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     FInit = -5
-    DInit = (np.random.rand(512)*DBound)
+    DInit = (np.random.rand(1)*DBound)
 
     results = np.array([optimization(DRange=DInit[i]*np.ones(params),
                                      FRange=FInit*np.ones(params-1),
