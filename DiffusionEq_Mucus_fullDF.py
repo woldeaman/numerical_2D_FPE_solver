@@ -143,7 +143,7 @@ def main():
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     FInit = -5
-    DInit = (np.random.rand(1)*DBound)
+    DInit = (np.random.rand(10)*DBound)
 
     results = np.array([optimization(DRange=DInit[i]*np.ones(params),
                                      FRange=FInit*np.ones(params-1),

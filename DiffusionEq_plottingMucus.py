@@ -58,7 +58,7 @@ def main():
     # ---------------------- plotting figures ---------------------------- #
     # starting with Error over transition layer thickness
     ps.plotMinError(distanceMuM, EMin, ESTD, save=args.save,
-                     path=figPath)
+                    path=figPath)
     # deprecated
     # ps.plotMinError(distanceMuM[1:], EMin[1:], ESTD[1:], save=args.save,
                     # path=figPath)
