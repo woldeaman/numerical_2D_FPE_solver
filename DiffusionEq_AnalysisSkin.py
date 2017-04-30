@@ -12,15 +12,15 @@ import sys
 
 '''
 this script saves D, F and computed and experimental concentration profiles
- for skin analysis 
+ for skin analysis script
 '''
 
 
 def main():
     # --------------- parsing command line inputs --------------------------- #
     parser = ap.ArgumentParser()
-    parser.add_argument('path', help='define the relative path to '
-                        'folder containing result.npy file')
+    parser.add_argument('-p', dest='path', type=str,
+                        help='define the path to data for analysis')
     parser.add_argument('name', help='defines name of experimental'
                         ' concentration data for which analyis was performed')
     parser.add_argument('-d', '--dsol_const', action='store_true', help='sets '
@@ -41,130 +41,63 @@ def main():
     '''Add option for active input '''
 
     # ------------------- experimental parameters ----------------------- #
-    Cdata = np.array([io.readData(path+'p10min.txt', sep=';'), io.readData(path+'p100min.txt', sep=';'), io.readData(path+'p10min.txt', sep=';')]  # change separator accordingly
-    xx = Cdata[:, 0]  # first line in document is x-position
-    cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
-    tt = np.array([0, 300, 600, 900])  # t in seconds
-    # pre processing of profiles as in optimization script
-    xx, cc = io.preProcessing(xx, cc)
-    deltaX = abs(xx[0] - xx[1])
-    c0 = 4  # concentration of peptide solution in µM
-    dim = cc[:, 0].size  # number of bins, chosen during pre processing
-    M = cc[0, :].size  # number of profiles
-    TransIndex = np.argwhere(abs(xx-100) ==
-                             np.min(abs(xx - 100)))[0, 0].astype(int)
-    # same conditions as for analysis need to be kept here
-    segments = np.concatenate((np.ones(TransIndex+1)*0,
-                               np.ones(dim-TransIndex)*1)).astype(int)
-    '''change distances definition for newer simulations'''
-    distances = np.arange(2, (2*TransIndex)+1, step=2)
-    # deprecated
-    # distances = np.arange(0, (2*TransIndex)+1, 2)
-    '''change to distanceMuM = (distances-1)*deltaX, for newer simulations'''
-    distanceMuM = (distances-1)*deltaX
-    # deprecated
-    # distanceMuM = np.concatenate((deltaX*np.ones(1),
-    #                               (distances[1:]-1)*deltaX))
-    n = int(sp.binom(M, 2))  # binomial because of counting profile differences
+    cData = np.array([np.concatenate((np.ones(10)*0.0025, np.zeros(90))),
+                      io.readData(path+'p10min.txt')[:73],
+                      io.readData(path+'p100min.txt')[:80],
+                      io.readData(path+'p1000min.txt')[:80]]).T
 
+    tt = np.array([0, 600, 6000, 60000])  # t in seconds
+    # max number of measured points in epidermis
+    N = max([cc[i].size for i in range(1, cc.size)])
+    # computing discretization lengths
+    X2 = 1  # discretization length in epidermis is 1µm
+    X1 = (400-(3.5*X2))/6.5  # transition between discretizations at bin 7
+    X3 = (20000-(3.5*X2))/6.5  # transition between discretizations at bin 83
+    deltaX = np.array([X1, X2, X3])
+    # vector of discretizations
+    deltaXX = np.concatenate((np.ones(7)*deltaX[0],
+                              np.ones(N+6)*deltaX[1],
+                              np.ones(8)*deltaX[2]))
+    # vector of different segments
+    segments = np.concatenate((np.ones(10)*0, np.arange(1, N+1),
+                               np.ones(10)*(N+1))).astype(int)
     # -------------------------- loading results --------------------------- #
     results = np.load(path+'result.npy')
-    # deprecated
-    # results = results[:, :, 0]  # for compatibality with older version
 
-    K = results[:, 0].size  # number of different transition sizes
-    I = results[0, :].size  # number of different initial conditions
+    I = results.size  # number of different initial conditions
+    topPer = 0.01*I  # number for top 1% of the runs
 
     # gathering data from simulations
     # loading error values, factor two, because of cost function definition
-    Error = np.array([[np.sqrt(results[k, i].cost*2/(dim*n)) for i in range(I)]
-                      for k in range(K)])
+    Error = np.array([600*np.sqrt(np.sum((results[i].cost[:73]**2)/73) +
+                      np.sum((results[i].cost[73:153]**2)/80) +
+                      np.sum((results[i].cost[153:]**2)/80) / (M-1))
+                      for i in range(I)])
     indices = np.argsort(Error)  # for sorting according to error
-    # minimal error for each transition layer size
-    EMin = np.array([np.min(Error[k, :]) for k in range(K)])
-    ESTD = np.array([np.std(Error[k, :]) for k in range(K)])
-    indexLayer = np.argmin(EMin)
 
-    # gathering F and D and subsequently computing corresponding profiles
-    if args.dsol_const:  # added support for different computational model
-        if "neg" in name:
-            dsol = 101.35  # value of Dsol for negative peptide
-        else:
-            dsol = 99.46  # value of Dsol for positive peptide
-        DRes = np.array([[np.array([dsol, results[k, indices[k, i]].x[0]])
-                          for i in range(I)]
-                         for k in range(K)])  # D-profile with dsol fixed
-    else:
-        DRes = np.array([[results[k, indices[k, i]].x[:2] for i in range(I)]
-                         for k in range(K)])
-    FRes = np.array([[np.array([0, results[k, indices[k, i]].x[-1]])
-                      for i in range(I)]
-                     for k in range(K)])
+    # gathering F and D for best 1% of runs
+    DRes = np.mean(np.array([results[indices[i]].x[:82]
+                             for i in range(topPer)]), axis=0)
+    FRes = np.mean(np.array([0, results[indices[i]].x[82:]
+                             for i in range(topPer)]), axis=0)
+    print(DRes.shape, FRes.shape)
+    sys.exit()
 
-    # gather D and F and concentration profiles for best run
-    # add special case for buffer only experiment (only one D fitted)
-    if "buffer" not in name:
-        DF = np.array(fp.computeDF(DRes[indexLayer, 0, :],
-                                   FRes[indexLayer, 0, :], shape=segments,
-                                   mode='transition', transiBin=TransIndex,
-                                   dx=distances[indexLayer]))
-    else:
-        # needed for buffer experiment conditions
-        segments = np.zeros(dim+1).astype(int)  # only one D
-        FRes = np.zeros(FRes.shape)  # no F was fitted
-        DF = np.array(fp.computeDF(DRes[0, 0, :], FRes[0, 0, :],
-                                   shape=segments, mode='segments'))
-        # distanceMuM = deltaX*np.ones(1)
-
-    D = DF[0, :]
-    F = DF[1, :]
+    # compute D and F and concentration profiles
+    D, F = fp.computeDF(DRes, FRes, shape=segments)
     # computing WMatrix
-    W = np.array(fp.WMatrix(D, F, bc='open1side',
-                            deltaX=deltaX)[0])
-    W10 = np.array(fp.WMatrix(D, F, bc='open1side',
-                              deltaX=deltaX)[1])
+    W = fp.WMatrixVar(D, F, N, deltaXX)
     # computing concentration profiles
-    ccRes = np.array([fp.calcC(cc[:, 0], tt[j], W=W, bc='open1side', W10=W10,
-                               c0=c0) for j in range(M)]).T
+    ccRes = fp.calcC(cc[:, 0], tt[j], W=W)
+
     # --------------------------- saving data ------------------------------- #
-    # saving error data for plotting
-    np.savetxt(savePath+'Error.csv',
-               np.array([distanceMuM, EMin, ESTD]).T, delimiter=',')
     # saving analyzed data for best results for plotting
     np.savetxt(savePath+'concentrationExpRes.csv',
-               np.concatenate((xx.reshape((dim, 1)), cc, ccRes), axis=1),
-               delimiter=',')
+               np.concatenate((cc, ccRes), axis=1), delimiter=',')
+    # saving averaged DF
     np.savetxt(savePath+'DF.csv', np.array([D, F]).T, delimiter=',')
-
-    # saving rest to npy array
-    # format is: data[k, i, l] for layer distance k, top i run and with
-    # l=0: error, l=1: D_sol, l=2: D_Muc, l=3:F_sol = 0, l=4: F_muc
-    data = np.concatenate((Error.reshape((K, I, 1)), DRes, FRes), axis=2)
-    np.save(savePath+'data.npy', data)
-
-    # saving best run data to excel spreadsheet
-    D1 = DRes[indexLayer, :int(I/10), 0]  # top 10% of runs for D_sol
-    D2 = DRes[indexLayer, :int(I/10), -1]  # top 10% of runs for D_muc
-    F2 = FRes[indexLayer, :int(I/10), -1]  # top 10% of runs for F_muc
-    # saving data to excel spreadsheet
-    workbook = xl.Workbook(savePath+'results.xlsx')
-    worksheet = workbook.add_worksheet()
-    bold = workbook.add_format({'bold': True})
-    # writing headers
-    worksheet.write('A1', 'D_sol [µm^2/s]', bold)
-    worksheet.write('B1', 'D_muc [µm^2/s]', bold)
-    worksheet.write('C1', 'F_muc [kT]', bold)
-    worksheet.write('D1', 'layer d [µm]', bold)
-    worksheet.write('E1', 'min E [+/- µM]', bold)
-    # writing entries
-    worksheet.write('A2', '%.2f +/- %.2f' % (D1[0], np.std(D1)))
-    worksheet.write('B2', '%.2f +/- %.2f' % (D2[0], np.std(D2)))
-    worksheet.write('C2', '%.2f +/- %.2f' % (F2[0], np.std(F2)))
-    worksheet.write('D2', '%.2f' % distanceMuM[indexLayer])
-    worksheet.write('E2', '%.2f' % np.min(EMin))
-    # adjusting cell widths
-    worksheet.set_column(0, 5, len('minError [+/- µM]'))
-    workbook.close()
+    # saving Error of top 1% of runs
+    np.savetxt(savePath+'minError.csv', Error[indices[:topPer]])
 
 
 if __name__ == "__main__":
