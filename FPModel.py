@@ -10,7 +10,8 @@ import sys
 
 def WMatrixVar(d, f, N, deltaXX, con=False):
     '''
-    Integrate this into regular WMatrix computation at some point
+    Rate matrix for variable discretization widths,
+    *** Integrate this into regular WMatrix computation at some point ***
     N - Number of bins in c
     deltaXX - discretization array (has deltaX for each bin)
     d, f - diffusivity, free energy

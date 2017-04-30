@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-# implemented fokker-planck equation in 1D for
-# mucus experiments by AG Ribbeck
+
 import numpy as np
 import inputOutput as io
 import FPModel as fp
-import scipy.linalg as al
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.cm as cmx

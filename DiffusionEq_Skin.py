@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import scipy.linalg as al
-import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
 import sys
 import time
 import FPModel as fp
 import inputOutput as io
+import argparse as ap
 
 
 def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
@@ -43,8 +43,8 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
 
     # check for detailed balance and conservation of concentration
     # (only for reflective boundaries)
-    if False and debug:
-        # numerical error min 100 times smaller than first entry of W
+    if debug:
+        # numerical error min 100 times smaller than zero
         if abs(np.sum(np.sum(W, 0))) > 1E-2:
             print('Error: W Matrix is not row stochastic in rows: \n',
                   np.nonzero(abs(np.sum(W, 0)) > 1E-2), '\n')
@@ -53,12 +53,12 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
             sys.exit()
 
         # same check for T matrix
-        # if abs(np.sum(np.sum(T, 0))-T[:, 0].size) > T[:, 0].size*1E-1:
-        #      print('Error: T Matrix is not row stochatic in rows: \n',
-        #            np.nonzero(abs(np.sum(T, 0)-1) > 1E-1), '\n')
-        #      print('Row Sum:\n', np.sum(T, 0), '\n')
-        #      print('Total Sum:\n', np.sum(np.sum(T, 0)), '\n')
-        #      sys.exit()
+        # if abs(np.sum(np.sum(T, 0))-T[:, 0].size) > T[:, 0].size*1E-2:
+        #     print('Error: T Matrix is not row stochatic in rows: \n',
+        #           np.nonzero(abs(np.sum(T, 0)-1) > 1E-2), '\n')
+        #     print('Row Sum:\n', np.sum(T, 0), '\n')
+        #     print('Total Sum:\n', np.sum(np.sum(T, 0)), '\n')
+        #     sys.exit()
 
         deltaXC = np.concatenate((np.ones(6)*deltaX[0],
                                   np.ones(1)*(deltaX[0]+deltaX[1])/2,
@@ -67,17 +67,17 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
                                   np.ones(7)*deltaX[2]))
         # deltaXC = deltaXX[:-1]
         con = np.sum(cc[0]*deltaXC)
-        # compute profiles from c0 and
-        # do the same conservation check
+
+        # compute profiles from c0 and do the same conservation check
         ccComp = np.array([fp.calcC(cc[0], t=tt[i], W=W)
                            for i in range(M)])
-        # print([np.sum(ccComp[i]*deltaXC) for i in range(M)])
+
         if np.any(np.array([abs(np.sum(ccComp[i]*deltaXC)-con)
-                            for i in range(M)]) > 0.1*con):
+                            for i in range(M)]) > 0.01*con):
             print('Error: Computed concentration '
                   'is not conserved in profiles: \n',
                   np.nonzero(np.array([abs(np.sum(ccComp[i]*deltaXC)-con)
-                                       for i in range(M)]) > 0.1*con))
+                                       for i in range(M)]) > 0.01*con))
             print([np.sum(ccComp[i]*deltaXC) for i in range(M)], '\n')
             print('concentration:\n', con)
             print('WMatrix Size:\n', W.shape)
@@ -85,27 +85,22 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
             print('WMatrix 2Sum:\n', np.sum(np.sum(W, 0)))
             sys.exit()
 
-        # computing residual vector for mucus model
-        # number of combinations for different c-profiles
-        n = int(sp.binom(M, 2))
-        RR = np.zeros((N, n))
-
-    k = 0
-    for j in range(M):
-        for i in range(M):
-            if j > i:
-                RR[:, k] = cc[:, j] - fp.calcC(cc[:, i], (tt[j] - tt[i]), T=T,
-                                               bc='reflective')
-                k += 1
-
-    # calculating vector of residuals
-    RRn = RR.reshape(RR.size)  # residual vector contains all deviations
+    # calculating vector of residuals for each profile
+    RR = [cc[i] -
+          fp.calcC(cc[0], tt[i], T=T,
+                   bc='reflective')[10:(cc[i].size+10)] for i in range(1, M)]
+    # residual vector contains all deviations
+    residuals = np.concatenate((RR[0], RR[1], RR[2]))
 
     if (verb):
-        E = np.sqrt(np.sum(RRn**2)/(N*n))  # normalized version
-        print(E)
+        # normalized version as used by Robert
+        sigma = 600*np.sqrt((np.sum((residuals[:73]**2)/73) +
+                             np.sum((residuals[73:153]**2)/80) +
+                             np.sum((residuals[153:]**2)/80)) / (M-1))
+        E = 0.5*np.sum(residuals**2)  # non-normalized version (used by scipy)
+        print("non-normalized: %f \nnormalized: %f \n" % (E, sigma))
 
-    return RRn
+    return residuals
 
 
 # extra function for optimization process, written for easy parallelization
@@ -114,27 +109,25 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, debug=False,
 
     optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, debug=debug,
                           verb=verb)
+    initVal = np.concatenate((DRange, FRange))  # starting values of ls-algo
 
-    initVal = np.concatenate((DRange, FRange))
-    # running 5x50 with varied starting points based on initVal
-    for l in range(5):
-        result = op.least_squares(optimize, initVal, bounds=bnds,
-                                  max_nfev=50, tr_solver='exact')
-        initVal = result.x
+    # running scipy least squares optimization
+    result = op.least_squares(optimize, initVal, bounds=bnds, loss='cauchy',
+                              max_nfev=None, tr_solver='exact', verbose=2)
 
     return result
 
 
 def main():
-    #----------------- parsing command line inputs --------------------------#
+    # ----------------- parsing command line inputs ------------------------- #
     parser = ap.ArgumentParser()
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose '
                         'mode prints error during minimization')
     parser.add_argument('-c', '--conservation', action='store_true',
                         help='turn on checks for conservation of '
                         'concentration')
-    parser.add_argument('path', help='define the relative path to '
-                        'data for analysis')
+    parser.add_argument('-p', dest='path', type=str,
+                        help='define the relative path to data for analysis')
     args = parser.parse_args()
     # gathering path to data and setting verbosity and conservation mode
     path = args.path
@@ -146,9 +139,9 @@ def main():
         conservation = True
     else:
         conservation = False
-    #----------------- parsing command line inputs --------------------------#
+    # ---------------- parsing command line inputs ------------------------- #
 
-    #---------------------------- reading profiles --------------------------#
+    # --------------------------- reading profiles ------------------------- #
     cc = np.array([np.concatenate((np.ones(10)*0.0025, np.zeros(90))),
                    io.readData(path+'p10min.txt')[:73],
                    io.readData(path+'p100min.txt')[:80],
@@ -162,9 +155,9 @@ def main():
     X1 = (400-(3.5*X2))/6.5  # transition between discretizations at bin 7
     X3 = (20000-(3.5*X2))/6.5  # transition between discretizations at bin 83
     deltaX = np.array([X1, X2, X3])
-    #---------------------------- reading profiles --------------------------#
+    # --------------------------- reading profiles -------------------------- #
 
-    #--------------------- starting ls-optimization --------------------------#
+    # -------------------- starting ls-optimization ------------------------- #
     # setting bounds, D first and F second
     # there are a total of 2N+3 fit parameters,
     # N+2 for D (N in epidermis and one for gel and dermis)
@@ -178,7 +171,7 @@ def main():
 
     # setting initial conditions
     # D is randomly chosen at each point and F is constant throughout
-    DInit = np.random.rand(N+2, 8)*350
+    DInit = np.random.rand(N+2, 100)*1000
     FInit = -5
 
     # trying Roberts results as initial data
@@ -194,9 +187,10 @@ def main():
                                      FRange=FInit*np.ones(N+1), bnds=bnds,
                                      cc=cc, tt=tt, debug=conservation,
                                      verb=verbose, deltaX=deltaX)
-                        for i in range(DInit.size)])
+                        for i in range(DInit[0, :].size)])
     np.save('result.npy', results)
-    #--------------------- starting ls-optimization --------------------------#
+    # -------------------- starting ls-optimization ------------------------- #
+
 
 if __name__ == "__main__":
     startTime = time.time()
