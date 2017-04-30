@@ -112,8 +112,8 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, debug=False,
     initVal = np.concatenate((DRange, FRange))  # starting values of ls-algo
 
     # running scipy least squares optimization
-    result = op.least_squares(optimize, initVal, bounds=bnds, loss='cauchy',
-                              max_nfev=None, tr_solver='exact', verbose=2)
+    result = op.least_squares(optimize, initVal, bounds=bnds, max_nfev=None,
+                              tr_solver='exact', verbose=2)
 
     return result
 
