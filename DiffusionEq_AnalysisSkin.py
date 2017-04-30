@@ -41,7 +41,7 @@ def main():
     '''Add option for active input '''
 
     # ------------------- experimental parameters ----------------------- #
-    Cdata = io.readData(path+name+'.csv', sep=';')  # change separator accordingly
+    Cdata = np.array([io.readData(path+'p10min.txt', sep=';'), io.readData(path+'p100min.txt', sep=';'), io.readData(path+'p10min.txt', sep=';')]  # change separator accordingly
     xx = Cdata[:, 0]  # first line in document is x-position
     cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
     tt = np.array([0, 300, 600, 900])  # t in seconds
