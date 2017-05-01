@@ -110,8 +110,8 @@ def main():
     parser.add_argument('-c', '--conservation', action='store_true',
                         help='turn on checks for conservation of '
                         'concentration')
-    parser.add_argument('path', help='define the relative path to '
-                        'data for analysis')
+    parser.add_argument('-p', dest='path', type=str,
+                        help='define the path to data for analysis')
     args = parser.parse_args()
     # gathering path to data and setting verbosity and conservation mode
     path = args.path
