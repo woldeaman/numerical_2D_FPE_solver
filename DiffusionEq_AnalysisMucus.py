@@ -6,9 +6,6 @@ import argparse as ap
 import os
 import sys
 import xlsxwriter as xl
-# import os
-# for debugging
-import sys
 
 '''
 this script saves D, F and computed and experimental concentration profiles
@@ -41,7 +38,7 @@ def main():
     '''Add option for active input '''
 
     # ------------------- experimental parameters ----------------------- #
-    Cdata = io.readData(path+name+'.csv', sep=',')  # change separator accordingly
+    Cdata = io.readData(path+name+'.csv', sep=',')
     xx = Cdata[:, 0]  # first line in document is x-position
     # change number of profiles according to analysis type
     cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
@@ -129,13 +126,13 @@ def main():
                                c0=c0) for j in range(M)]).T
     # --------------------------- saving data ------------------------------- #
     # saving error data for plotting
-    np.savetxt(savePath+'Error.csv',
+    np.savetxt(savePath+'Error.txt',
                np.array([distanceMuM, EMin, ESTD]).T, delimiter=',')
     # saving analyzed data for best results for plotting
-    np.savetxt(savePath+'concentrationExpRes.csv',
+    np.savetxt(savePath+'concentrationExpRes.txt',
                np.concatenate((xx.reshape((dim, 1)), cc, ccRes), axis=1),
                delimiter=',')
-    np.savetxt(savePath+'DF.csv', np.array([D, F]).T, delimiter=',')
+    np.savetxt(savePath+'DF.txt', np.array([D, F]).T, delimiter=',')
 
     # saving rest to npy array
     # format is: data[k, i, l] for layer distance k, top i run and with

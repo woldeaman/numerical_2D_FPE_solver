@@ -8,17 +8,15 @@ import sys
 
 '''
 this script saves D, F and computed and experimental concentration profiles
- for skin analysis script
+ for full DF mucus analysis script
 '''
 
 
 # for printing analytical solution
-def plotCon(xx, cc, ccRes, tt, save=False, path=None, deltaXX=None):
+def plotCon(xx, cc, ccRes, tt, save=False, path=None):
 
-    M = cc.size  # number of profiles
-    N = ccRes[0, :].size  # number of bins
-    if deltaXX is None:
-        deltaXX = np.ones(N+1)
+    M = cc[:, 0].size  # number of profiles
+    N = cc[0, :].size  # number of bins
     if path is None:
         if sys.platform == "darwin":  # folder for linux
             path = '/Users/AmanuelWK/Desktop/'
@@ -36,7 +34,7 @@ def plotCon(xx, cc, ccRes, tt, save=False, path=None, deltaXX=None):
         plt.gca().set_xlim(right=xx[-1])
         plt.xlabel('Distance [µm]')
         plt.ylabel('Concentration [µM]')
-        l1, = plt.plot(xx[10:cc[j].size+10], cc[j], '--', color=colors[j])
+        l1, = plt.plot(xx, cc[j, :], '--', color=colors[j])
 
         # plot computed only for t > 0, otherwise not computed
         l1s.append([l1])
@@ -68,27 +66,18 @@ def main():
     if not os.path.exists(savePath):
         os.makedirs(savePath)
     # ------------------- experimental parameters ----------------------- #
-    cc = np.array([np.concatenate((np.ones(10)*0.0025, np.zeros(90))),
-                   io.readData(path+'p10min.txt')[:73],
-                   io.readData(path+'p100min.txt')[:80],
-                   io.readData(path+'p1000min.txt')[:80]]).T
+    # reading profiles and take only samples for 4 different time points
+    data = io.readData(path+'Ch3_Negative.csv', sep=',')  # change seperator according to format
+    xx = data[:, 0]
+    cc = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
 
-    tt = np.array([0, 600, 6000, 60000])  # t in seconds
-    # max number of measured points in epidermis
-    N = max([cc[i].size for i in range(1, cc.size)])
-    M = cc.size
-    # computing discretization lengths
-    X2 = 1  # discretization length in epidermis is 1µm
-    X1 = (400-(3.5*X2))/6.5  # transition between discretizations at bin 7
-    X3 = (20000-(3.5*X2))/6.5  # transition between discretizations at bin 83
-    deltaX = np.array([X1, X2, X3])
-    # vector of discretizations
-    deltaXX = np.concatenate((np.ones(7)*deltaX[0],
-                              np.ones(N+6)*deltaX[1],
-                              np.ones(8)*deltaX[2]))
-    # vector of different segments
-    segments = np.concatenate((np.ones(10)*0, np.arange(1, N+1),
-                               np.ones(10)*(N+1))).astype(int)
+    # pre processing of profiles
+    xx, cc = io.preProcessing(xx, cc)  # smoothing and discarding negative c
+    N = cc[:, 0].size  # number of discretization bins
+    M = cc[0, :].size  # number of profiles
+    deltaX = abs(xx[0] - xx[1])
+    tt = np.array([0, 300, 600, 900])  # t in seconds
+    c0 = 4  # concentration of peptide solution in µM
     # ------------------- experimental parameters ----------------------- #
 
     # -------------------------- loading results --------------------------- #
@@ -99,28 +88,27 @@ def main():
 
     # gathering data from simulations
     # loading error values, factor two, because of cost function definition
-    Error = np.array([600*np.sqrt(np.sum((results[i].fun[:73]**2)/73) +
-                      np.sum((results[i].fun[73:153]**2)/80) +
-                      np.sum((results[i].fun[153:]**2)/80) / (M-1))
+    Error = np.array([np.sqrt(np.sum(result[i].fun / ((M-1)*N)))
                       for i in range(I)])
     indices = np.argsort(Error)  # for sorting according to error
 
     # gathering mean of F and D for best 1% of runs
-    DRes = np.mean(np.array([results[indices[i]].x[:82]
+    DRes = np.mean(np.array([results[indices[i]].x[:dim+1]
                              for i in range(topPer)]), axis=0)
-    FRes = np.mean([np.concatenate((np.zeros(1), results[indices[i]].x[82:]))
+    FRes = np.mean([np.concatenate((np.zeros(1),
+                                    results[indices[i]].x[dim+1:]))
                     for i in range(topPer)], axis=0)
     # gathering standart deviation for top 1% of runs
-    DSTD = np.std(np.array([results[indices[i]].x[:82]
+    DSTD = np.std(np.array([results[indices[i]].x[:dim+1]
                             for i in range(topPer)]), axis=0)
-    FSTD = np.std([np.concatenate((np.zeros(1), results[indices[i]].x[82:]))
+    FSTD = np.std([np.concatenate((np.zeros(1), results[indices[i]].x[dim+1:]))
                    for i in range(topPer)], axis=0)
+    # setting D and F
+    D = DRes
+    F = FRes
 
-    # compute D and F and concentration profiles
-    D, F = fp.computeDF(DRes, FRes, shape=segments)
-    D_std, F_std = fp.computeDF(DSTD, FSTD, shape=segments)
     # computing WMatrix
-    W = fp.WMatrixVar(D, F, N, deltaXX)
+    W = fp.WMatrix(D, F, bc='open1side')
     # computing concentration profiles
     ccRes = np.array([fp.calcC(cc[0], tt[j], W=W) for j in range(tt.size)])
     # -------------------------- loading results --------------------------- #
@@ -137,11 +125,7 @@ def main():
 
     # ------------------------- plotting data ------------------------------- #
     # plotting profiles
-    xx1 = deltaX[0]*np.arange(-9, 1)
-    xx2 = np.arange(1, N+1)*deltaX[1]
-    xx3 = np.arange(N+1, N+11)*deltaX[2]
-    xx = np.concatenate((xx1, xx2, xx3))
-    xx = np.arange(100)
+    xx = np.arange(N)
     plotCon(xx, cc, ccRes, tt, save=True, path=savePath)
 
     # plotting averaged D and F

@@ -112,8 +112,10 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, debug=False,
     initVal = np.concatenate((DRange, FRange))  # starting values of ls-algo
 
     # running scipy least squares optimization
-    result = op.least_squares(optimize, initVal, bounds=bnds, max_nfev=None,
-                              tr_solver='exact', verbose=2)
+    for i in range(5):
+        result = op.least_squares(optimize, initVal, bounds=bnds, xtol=1e-9
+                                  max_nfev=None, tr_solver='exact', verbose=2)
+        initVal = result.x
 
     return result
 
@@ -164,14 +166,14 @@ def main():
     # and N+1 for F (as F is set to zero in the gel)
     bndsDUpper = np.ones(N+2)*2000
     bndsFUpper = np.ones(N+1)*20
-    bndsDLower = np.zeros(N+2)
+    bndsDLower = -np.ones(N+2)
     bndsFLower = -np.ones(N+1)*20
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     # setting initial conditions
     # D is randomly chosen at each point and F is constant throughout
-    DInit = np.random.rand(N+2, 100)*1000
+    DInit = np.random.rand(N+2, 1000)*1000
     FInit = -5
 
     # trying Roberts results as initial data
