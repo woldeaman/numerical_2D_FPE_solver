@@ -113,7 +113,7 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, debug=False,
 
     # running scipy least squares optimization
     for i in range(5):
-        result = op.least_squares(optimize, initVal, bounds=bnds, xtol=1e-9
+        result = op.least_squares(optimize, initVal, bounds=bnds, xtol=1e-9,
                                   max_nfev=None, tr_solver='exact', verbose=2)
         initVal = result.x
 

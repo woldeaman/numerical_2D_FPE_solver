@@ -5,7 +5,7 @@ import DiffusionEq_Skin as sk
 
 def main():
     # --------------------------- reading profiles ------------------------- #
-    path = ('/home/amanuelwk/Dropbox/PhD/Projects/FokkerPlanckModeling/'
+    path = ('/Users/AmanuelWK/Dropbox/PhD/Projects/FokkerPlanckModeling/'
             'Skin/Data/')
     cc = np.array([np.concatenate((np.ones(10)*0.0025, np.zeros(90))),
                    io.readData(path+'ExperimentalData/p10min.txt')[:73],
