@@ -19,22 +19,15 @@ startTime = time.time()
 
 # function for computation of residuals, given to optimization function as
 # argument to be optimized
-def resFun(df, cc, tt, deltaX=1, c0=None, debug=False, verb=False):
+def resFun(df, cc, tt, deltaX=1, c0=None, verb=False):
     '''
     This function computes residuals from given D and F and Concentration
     Profiles. Additional parameters include: discretization width: deltaX,
     distance of transition regime: dist and concentration at left boundary: c0
     '''
 
-    if len(cc.shape) == 1:
-        # catches the case of differently sized concentration profiles
-        # within cc array and simply takes maximum as N
-        # actually only needed for skin model, not neccessary for mucus model
-        N = np.max(np.array([cc[i].size for i in range(1, cc.size)]))
-        M = cc.size
-    else:
-        M = cc[0, :].size  # number of concentration profiles
-        N = cc[:, 0].size  # number of bins
+    M = cc[0, :].size  # number of concentration profiles
+    N = cc[:, 0].size  # number of bins
 
     # N paramters to be optimized, D', D and F
     d = df[:(N+1)]
@@ -69,6 +62,7 @@ def resFun(df, cc, tt, deltaX=1, c0=None, debug=False, verb=False):
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
 
+    # print out error estimate in form of standart deviation if wanted
     if (verb):
         E = np.sqrt(np.sum(RRn**2)/(N*n))  # normalized version
         print(E)
@@ -77,64 +71,73 @@ def resFun(df, cc, tt, deltaX=1, c0=None, debug=False, verb=False):
 
 
 # extra function for optimization process, written for easy parallelization
-def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, debug=False,
-                 verb=False):
+def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0):
+
+    if verb == -1:
+        funcVerb = True
+        scpVerb = 0
+    else:
+        funcVerb = False
+        scpVerb = verb
 
     optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, c0=c0,
-                          debug=debug, verb=verb)
+                          verb=funcVerb)
 
     initVal = np.concatenate((DRange, FRange))
-    # running 5x50 with varied starting points based on initVal
-    for l in range(5):
-        result = op.least_squares(optimize, initVal, bounds=bnds,
-                                  max_nfev=50, tr_solver='exact')
-        initVal = result.x
+    # running freely with standart termination conditions
+    result = op.least_squares(optimize, initVal, bounds=bnds,
+                              max_nfev=None, tr_solver='exact',
+                              verbose=scpVerb)
 
     return result
 
 
 def main():
     # ---------------- parsing command line inputs ------------------------- #
+    # gathering path to data and setting verbosity
     parser = ap.ArgumentParser()
-    parser.add_argument('-v', '--verbose', action='store_true', help='verbose '
-                        'mode prints error during minimization')
-    parser.add_argument('-c', '--conservation', action='store_true',
-                        help='turn on checks for conservation of '
-                        'concentration')
-    parser.add_argument('path', help='define the relative path to '
-                        'data for analysis')
+    parser.add_argument('-p', dest='path', type=str,
+                        help='define the path to data for analysis')
+    parser.add_argument('-v', dest='verbosity', type=int, help='set '
+                        'verbosity level ranging from 0 - no output to 2 - '
+                        'full output, -1 - means custom verbose mode')
+
     args = parser.parse_args()
-    # gathering path to data and setting verbosity and conservation mode
-    path = args.path
-    if args.verbose:
-        verbose = True
+    if args.verbosity is None:
+        verbosity = 0
     else:
-        verbose = False
-    if args.conservation:
-        conservation = True
-    else:
-        conservation = False
+        verbosity = args.verbosity
     # ---------------- parsing command line inputs ------------------------- #
 
     # -------------- reading and pre-processing profiles ------------------- #
     # reading profiles and take only samples for 4 different time points
-    data = io.readData(path, sep=',')  # change seperator according to format
-    xx = data[:, 0]
-    cc = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
+    data = io.readData(args.path, sep=',')  # change seperator accordingly
 
     # pre processing of profiles
-    xx, cc = io.preProcessing(xx, cc)  # smoothing and discarding negative c
-    dim = cc[:, 0].size  # number of discretization bins
-    deltaX = abs(xx[0] - xx[1])
+    # filtering and setting negative c-values to zero
+    print('\nReading data and starting pre-processing.')
+    xx_exp = data[:, 0]
+    cc_exp = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
+    xx, cc = io.preProcessing(xx_exp, cc_exp, order=5)
+    np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=', ',
+               header='Profiles were smoothed using Savitzky-Golay filter'
+               ' \nCloumn 1: x-distance [micro_m]'
+               '\nColumn 2-5: c-profiles at t0-t3 [micro_M]')
+    print('Finished pre-processing and saved smoothed profiles.')
+
     tt = np.array([0, 300, 600, 900])  # t in seconds
-    c0 = 4  # concentration of peptide solution in µM
+    c0 = 4  # concentration of peptide solution in µ
+    dim = cc[:, 0].size  # number of discretization bins
+    deltaX = abs(xx[0] - xx[1])  # discretization width
+    print('Discretization width is %.2f µm.\n Starting optimization.\n'
+          % deltaX)
     # -------------- reading and pre-processing profiles ------------------- #
 
     # setting reasonable bounds for F and D
     DBound = 1000
-    # is one more than number of bins, because of c0 at boundary
-    # one parameter less for F, since we set F_b = 0
     params = dim+1  # number of parameters for fitting D and F
+    # is one more than number of bins, because of c0 at boundary
+    # one parameter less for F, since we set F_0 = 0
     bndsDUpper = np.ones(params)*DBound
     bndsFUpper = np.ones(params-1)*20
     bndsDLower = np.zeros(params)
@@ -143,16 +146,17 @@ def main():
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     FInit = -5
-    DInit = (np.random.rand(10)*DBound)
+    DInit = (np.random.rand(1)*DBound)
 
     results = np.array([optimization(DRange=DInit[i]*np.ones(params),
                                      FRange=FInit*np.ones(params-1),
                                      bnds=bnds, cc=cc, tt=tt, deltaX=deltaX,
-                                     c0=c0, debug=conservation, verb=verbose)
+                                     c0=c0, verb=verbosity)
                         for i in range(DInit.size)])
     np.save('result.npy', results)
 
 
 if __name__ == "__main__":
     main()
-    print("Execution time is: %f seconds" % (time.time() - startTime))
+    print("Finished optimization, execution time was %.2f minutes"
+          % ((time.time() - startTime)/60))

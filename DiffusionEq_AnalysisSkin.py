@@ -12,8 +12,8 @@ this script saves D, F and computed and experimental concentration profiles
 '''
 
 
-# for printing analytical solution
-def plotCon(xx, cc, ccRes, tt, save=False, path=None, deltaXX=None):
+# for printing c-profiles
+def plotConSkin(xx, cc, ccRes, tt, save=False, path=None, deltaXX=None):
 
     M = cc.size  # number of profiles
     N = ccRes[0, :].size  # number of bins
@@ -84,8 +84,12 @@ def main():
     deltaX = np.array([X1, X2, X3])
     # vector of discretizations
     deltaXX = np.concatenate((np.ones(7)*deltaX[0],
-                              np.ones(N+6)*deltaX[1],
-                              np.ones(8)*deltaX[2]))
+                              np.ones(N+7)*deltaX[1],
+                              np.ones(7)*deltaX[2]))
+    '''
+    I changed np.ones(6)*deltaX[2]) --> np.ones(7)*deltaX[2]) and above
+    I changed N+6 --> N+7, because discretization width is from left to right
+    '''
     # vector of different segments
     segments = np.concatenate((np.ones(10)*0, np.arange(1, N+1),
                                np.ones(10)*(N+1))).astype(int)
@@ -142,7 +146,7 @@ def main():
     xx3 = np.arange(N+1, N+11)*deltaX[2]
     xx = np.concatenate((xx1, xx2, xx3))
     xx = np.arange(100)
-    plotCon(xx, cc, ccRes, tt, save=True, path=savePath)
+    plotConSkin(xx, cc, ccRes, tt, save=True, path=savePath)
 
     # plotting averaged D and F
     plt.figure(1)

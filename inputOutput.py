@@ -3,6 +3,7 @@ import numpy as np
 import csv
 from matplotlib import pyplot as plt
 import scipy.interpolate as ip
+import scipy.signal as sg
 
 
 # reading data
@@ -38,25 +39,41 @@ def readData(path, sep=',', typo=float, comChar='#'):
     return data.astype(typo)  # returns np array
 
 
-def preProcessing(xx, cc, smoothing=True, order=3, bins=100):
+def preProcessing(xx, cc, order=3, window=None, bins=100):
     '''
     Function takes care of negative entries for concentration (set to zero)
-    and additionally smoothes profiles or normalizes them (to be implemented).
+    and additionally smoothes profiles using a Savitzky-Golay filter
     Profiles should be in format cc[:, i] for different times t_i
     '''
     profiles = cc
 
-    # smoothing of concentration profiles
-    if smoothing:
-        s = [ip.UnivariateSpline(xx, profiles[:, i], s=order)
-             for i in range(profiles[0, :].size)]
-        xs = np.linspace(xx[0], xx[-1], bins)
-        profiles = np.array([s[i](xs) for i in range(profiles[0, :].size)]).T
-
-    # taking care of negative concentration values
+    # taking care of negative concentration values prior to smoothing
     for i in range(profiles[:, 0].size):
         for j in range(profiles[0, :].size):
-            if (profiles[i, j]) <= 0:
+            if (profiles[i, j]) < 0:
+                profiles[i, j] = 0
+
+    # filtering/smoothing of concentration profiles
+    if window is None:
+        # standart windows size is half of profile size
+        if (int(profiles[:, 0].size/2) % 2) == 0:
+            window = int(profiles[:, 0].size/2) + 1
+        else:
+            window = int(profiles[:, 0].size/2)
+
+    filtered = np.array([sg.savgol_filter(
+        profiles[:, i], window, order, mode='mirror')
+                         for i in range(profiles[0, :].size)]).T
+    interpolated = [ip.UnivariateSpline(xx, filtered[:, i], s=0.5)
+                    for i in range(filtered[0, :].size)]
+    xs = np.linspace(xx[0], xx[-1], bins)
+    profiles = np.array([interpolated[i](xs)
+                         for i in range(profiles[0, :].size)]).T
+
+    # taking care of negative concentration values after smoothing
+    for i in range(profiles[:, 0].size):
+        for j in range(profiles[0, :].size):
+            if (profiles[i, j]) < 0:
                 profiles[i, j] = 0
 
     return xs, profiles
