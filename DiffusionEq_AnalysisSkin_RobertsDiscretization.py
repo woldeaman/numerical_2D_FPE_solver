@@ -100,7 +100,7 @@ def main():
     results = np.load(path+'result.npy')
 
     I = results.size  # number of different initial conditions
-    topPer = np.ceil(0.01*I).astype(int)  # number for top 1% of the runs
+    topPer = np.ceil(1*I).astype(int)  # number for top 1% of the runs
 
     # gathering data from simulations
     # loading error values, factor two, because of cost function definition
@@ -113,19 +113,24 @@ def main():
     # gathering mean of F and D for best 1% of runs
     DRes = np.mean(np.array([results[indices[i]].x[:82]
                              for i in range(topPer)]), axis=0)
-    FRes = np.mean([np.concatenate((np.zeros(1), results[indices[i]].x[82:]))
-                    for i in range(topPer)], axis=0)
+    FRes_notNorm = np.mean(np.array([results[indices[i]].x[82:]
+                                     for i in range(topPer)]), axis=0)
+    FRes = FRes_notNorm - FRes_notNorm[0]
     # gathering standart deviation for top 1% of runs
     DSTD = np.std(np.array([results[indices[i]].x[:82]
                             for i in range(topPer)]), axis=0)
-    FSTD = np.std([np.concatenate((np.zeros(1), results[indices[i]].x[82:]))
-                   for i in range(topPer)], axis=0)
+    FSTD = np.std(np.array([results[indices[i]].x[82:]
+                            for i in range(topPer)]), axis=0)
+
+    D_best = results[indices[0]].x[:82]
+    F_best = results[indices[0]].x[82:]
 
     # compute D and F and concentration profiles
     D, F = fp.computeDF(DRes, FRes, shape=segments)
     D_std, F_std = fp.computeDF(DSTD, FSTD, shape=segments)
-    # computing WMatrix
-    W = fp.WMatrixVar(D, F, N, deltaXX)
+    Db, Fb = fp.computeDF(D_best, F_best, shape=segments)
+    # computing WMatrix and concentration profiles only for best run
+    W = fp.WMatrixVar(Db, Fb, N, deltaXX)
     # computing concentration profiles
     ccRes = np.array([fp.calcC(cc[0], tt[j], W=W) for j in range(tt.size)])
     # -------------------------- loading results --------------------------- #

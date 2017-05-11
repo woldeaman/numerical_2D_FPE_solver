@@ -34,7 +34,7 @@ def main():
     # read roberts results
     D = np.loadtxt(path+'RobertsResults/D.txt')
     F = np.loadtxt(path+'RobertsResults/F.txt')
-    df = np.concatenate((D[6:88], F[7:88]))
+    df = np.concatenate((D[6:88], F[6:88]))
 
     sk.resFun(df=df, cc=cc, tt=tt, deltaX=deltaX, debug=True, verb=True)
 
