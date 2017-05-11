@@ -1,10 +1,17 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
 
 # plotting format for plots of minimal error for each transition layer distance
 def plotMinError(distance, Error, ESTD, save=False,
-                 path='/Users/AmanuelWK/Desktop/'):
+                 path=None):
+    if path is None:
+        if sys.platform == "darwin":  # folder for linux
+            path = '/Users/AmanuelWK/Desktop/'
+        elif sys.platform.startswith("linux"):  # folder for mac
+            path = '/home/amanuelwk/Desktop/'
+
     plt.figure(1)
     plt.gca().set_xlim([0, np.max(distance)])
     plt.errorbar(distance, Error, yerr=[np.zeros(ESTD.size), ESTD])
@@ -21,21 +28,34 @@ def plotMinError(distance, Error, ESTD, save=False,
 
 
 # plotting format for D and F in the same figure
-def plotDF(xx, D, F, save=False, path='/Users/AmanuelWK/Desktop/'):
+def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False,
+           path=None):
+    if path is None:
+        if sys.platform == "darwin":  # folder for linux
+            path = '/Users/AmanuelWK/Desktop/'
+        elif sys.platform.startswith("linux"):  # folder for mac
+            path = '/home/amanuelwk/Desktop/'
+
     deltaX = xx[1] - xx[0]
     # to take into account extra bin change xx vector
-    xx = np.concatenate((deltaX*np.ones(1), xx))
+    xx = np.concatenate((-deltaX*np.ones(1), xx))
     plt.figure(2)
     plt.gca().set_xlim(left=xx[0])
     plt.gca().set_xlim(right=xx[-1])
     # plotting F
-    plt.plot(xx, F, 'b-')
+    if F_STD is None:
+        plt.plot(xx, F, '.b')
+    else:
+        plt.errorbar(xx, F, yerr=F_STD, fmt='b.')
     plt.ylabel('Free Energy [k$_{B}$T]', color='b')
     plt.xlabel('Distance [µm]')
     plt.tick_params('y', colors='b')
     # plotting D
     plt.twinx()
-    plt.plot(xx, D, 'r-')
+    if D_STD is None:
+        plt.plot(xx, D, '.r')
+    else:
+        plt.errorbar(xx, D, yerr=D_STD, fmt='r.')
     # Make the y-axis label, ticks and tick labels match the line
     plt.gca().set_xlim(left=xx[0])
     plt.gca().set_xlim(right=xx[-1])
@@ -48,9 +68,61 @@ def plotDF(xx, D, F, save=False, path='/Users/AmanuelWK/Desktop/'):
         plt.show()
 
 
-# for printing analytical solution
-def plotCon(xx, cc, ccRes, tt, TransIndex, layerD=None, save=False,
-            path='/Users/AmanuelWK/Desktop/'):
+# for plotting concentration profiles
+def plotCon(xx, cc, ccRes, tt, c0=4, save=False, path=None):
+    '''Think of a way to distinguish between c-profile shape for skin
+    and mucus analysis'''
+    if path is None:
+        if sys.platform == "darwin":  # folder for linux
+            path = '/Users/AmanuelWK/Desktop/'
+        elif sys.platform.startswith("linux"):  # folder for mac
+            path = '/home/amanuelwk/Desktop/'
+
+    M = cc[0, :].size  # number of profiles
+
+    xxRes = np.concatenate(((xx[0]-xx[1])*np.ones(1), xx))
+    ccRes = np.concatenate((np.ones((1, 4))*c0, ccRes))
+
+    # plotting concentration profiles
+    l1s = []  # for sperate legends
+    l2s = []
+    colors = ['r', 'm', 'c', 'b', 'y', 'k', 'g']
+
+    plt.figure(0)
+    for j in range(M):
+        plt.gca().set_xlim(left=xxRes[0])
+        plt.gca().set_xlim(right=xxRes[-1])
+        plt.xlabel('Distance [µm]')
+        plt.ylabel('Concentration [µM]')
+        l1, = plt.plot(xx, cc[:, j], '--', color=colors[j])
+        l1s.append([l1])
+
+        # plot computed only for t > 0, otherwise not computed
+        if j > 0:
+            l2, = plt.plot(xxRes, ccRes[:, j], '-', color=colors[j])
+            l2s.append([l2])
+    # plotting two legends, for color and linestyle
+    legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=1)
+    plt.legend([l[0] for l in l1s], ["%d min" % (tt[i]/60)
+                                     for i in range(tt.size)], loc=3)
+    plt.gca().add_artist(legend1)
+
+    if save:
+        plt.savefig(path+'profiles.pdf')
+    else:
+        plt.show()
+
+
+# for printing analytical solution and transition layer thicknesses
+def plotConTrans(xx, cc, ccRes, tt, TransIndex, layerD=None, save=False,
+                 path=None):
+
+    if path is None:
+        if sys.platform == "darwin":  # folder for linux
+            path = '/Users/AmanuelWK/Desktop/'
+    elif sys.platform.startswith("linux"):  # folder for mac
+        path = '/home/amanuelwk/Desktop/'
+
     plt.figure(3)
     deltaX = xx[1] - xx[0]
     M = cc[0, :].size  # number of profiles

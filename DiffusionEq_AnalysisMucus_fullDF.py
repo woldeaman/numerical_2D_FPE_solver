@@ -2,9 +2,9 @@ import numpy as np
 import inputOutput as io
 import FPModel as fp
 import argparse as ap
-import matplotlib.pyplot as plt
+import scipy.special as sp
+import plottingScripts as ps
 import os
-import sys
 
 '''
 this script saves D, F and computed and experimental concentration profiles
@@ -12,135 +12,112 @@ this script saves D, F and computed and experimental concentration profiles
 '''
 
 
-# for printing analytical solution
-def plotCon(xx, cc, ccRes, tt, save=False, path=None):
-
-    M = cc[:, 0].size  # number of profiles
-    N = cc[0, :].size  # number of bins
-    if path is None:
-        if sys.platform == "darwin":  # folder for linux
-            path = '/Users/AmanuelWK/Desktop/'
-        elif sys.platform.startswith("linux"):  # folder for mac
-            path = '/home/amanuelwk/Desktop/'
-
-    # plotting concentration profiles
-    l1s = []  # for sperate legends
-    l2s = []
-    colors = ['r', 'm', 'c', 'b', 'y', 'k', 'g']
-
-    plt.figure(0)
-    for j in range(1, M):
-        plt.gca().set_xlim(left=xx[0])
-        plt.gca().set_xlim(right=xx[-1])
-        plt.xlabel('Distance [µm]')
-        plt.ylabel('Concentration [µM]')
-        l1, = plt.plot(xx, cc[j, :], '--', color=colors[j])
-
-        # plot computed only for t > 0, otherwise not computed
-        l1s.append([l1])
-        # concatenated to include constanc c0 boundary condition
-        l2, = plt.plot(xx, ccRes[j, :], '-', color=colors[j])
-        l2s.append([l2])
-    # plotting two legends, for color and linestyle
-    legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=1)
-    plt.legend([l[0] for l in l1s], ["%d min" % (tt[i]/60)
-                                     for i in range(1, tt.size)], loc=2)
-    plt.gca().add_artist(legend1)
-
-    if save:
-        plt.savefig(path+'profiles.pdf')
-    else:
-        plt.show()
-
-
 def main():
     # --------------- parsing command line inputs --------------------------- #
     parser = ap.ArgumentParser()
     parser.add_argument('-p', dest='path', type=str,
                         help='define the path to data for analysis')
+    parser.add_argument('-n', dest='name', type=str,
+                        help='define the name of the file for the analyzed'
+                        ' c-profiles')
+    parser.add_argument('-t', dest='top', type=float,
+                        help='set the percentage of best runs to average over,'
+                        ' default is 0.1 - top 10%%')
     args = parser.parse_args()
     # gathering path to data and name of experiment
+    if args.top is None:
+        topPer = 0.1
+    else:
+        topPer = args.top
     path = args.path
+    name = args.name
     savePath = path+'/results/'
 
     if not os.path.exists(savePath):
         os.makedirs(savePath)
-    # ------------------- experimental parameters ----------------------- #
-    # reading profiles and take only samples for 4 different time points
-    data = io.readData(path+'Ch3_Negative.csv', sep=',')  # change seperator according to format
-    xx = data[:, 0]
-    cc = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
+    # --------------- parsing command line inputs --------------------------- #
 
-    # pre processing of profiles
-    xx, cc = io.preProcessing(xx, cc)  # smoothing and discarding negative c
+    # ------------------- experimental parameters ----------------------- #
+    # change seperator for reading profiles according to format
+    data = io.readData(path+name, sep=',')
+    xx, cc = data[:, 0], data[:, 1:]
+
     N = cc[:, 0].size  # number of discretization bins
     M = cc[0, :].size  # number of profiles
+    n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
     deltaX = abs(xx[0] - xx[1])
     tt = np.array([0, 300, 600, 900])  # t in seconds
     c0 = 4  # concentration of peptide solution in µM
     # ------------------- experimental parameters ----------------------- #
 
     # -------------------------- loading results --------------------------- #
-    results = np.load(path+'result.npy')
+    results = np.load(path+'result.npy')  # this might take a while
 
     I = results.size  # number of different initial conditions
-    topPer = np.ceil(0.01*I).astype(int)  # number for top 1% of the runs
+    nbr = np.ceil(topPer*I).astype(int)  # number for top 1% of the runs
 
     # gathering data from simulations
     # loading error values, factor two, because of cost function definition
-    Error = np.array([np.sqrt(np.sum(result[i].fun / ((M-1)*N)))
+    Error = np.array([np.sqrt(np.sum(results[i].fun**2 / (n*N)))
                       for i in range(I)])
     indices = np.argsort(Error)  # for sorting according to error
 
     # gathering mean of F and D for best 1% of runs
-    DRes = np.mean(np.array([results[indices[i]].x[:dim+1]
-                             for i in range(topPer)]), axis=0)
-    FRes = np.mean([np.concatenate((np.zeros(1),
-                                    results[indices[i]].x[dim+1:]))
-                    for i in range(topPer)], axis=0)
+    D = np.mean(np.array([results[indices[i]].x[:N+1]
+                          for i in range(nbr)]), axis=0)
+    F = np.mean([np.concatenate((np.zeros(1), results[indices[i]].x[N+1:]))
+                 for i in range(nbr)], axis=0)
     # gathering standart deviation for top 1% of runs
-    DSTD = np.std(np.array([results[indices[i]].x[:dim+1]
-                            for i in range(topPer)]), axis=0)
-    FSTD = np.std([np.concatenate((np.zeros(1), results[indices[i]].x[dim+1:]))
-                   for i in range(topPer)], axis=0)
-    # setting D and F
-    D = DRes
-    F = FRes
+    DSTD = np.std(np.array([results[indices[i]].x[:N+1]
+                            for i in range(nbr)]), axis=0)
+    FSTD = np.std([np.concatenate((np.zeros(1), results[indices[i]].x[N+1:]))
+                   for i in range(nbr)], axis=0)
 
-    # computing WMatrix
-    W = fp.WMatrix(D, F, bc='open1side')
-    # computing concentration profiles
-    ccRes = np.array([fp.calcC(cc[0], tt[j], W=W) for j in range(tt.size)])
+    # gathering best D and F for computation of profiles
+    D_best = results[indices[0]].x[:N+1]
+    F_best = np.concatenate((np.zeros(1), results[indices[0]].x[N+1:]))
+
+    # computing WMatrix for open boundary conditions
+    W, W10 = fp.WMatrix(D_best, F_best, deltaX=deltaX, bc='open1side')
+
+    # computing concentration profiles for best D and F
+    ccRes = np.array([fp.calcC(cc[:, 0], tt[j], W=W, W10=W10, c0=c0,
+                               bc='open1side') for j in range(tt.size)]).T
     # -------------------------- loading results --------------------------- #
 
     # --------------------------- saving data ------------------------------- #
     # saving analyzed data for best results for plotting
-    np.savetxt(savePath+'concentrationRes.txt', ccRes, delimiter=',')
+    np.savetxt(savePath+'concentrationRes.txt', np.c_[xx, ccRes],
+               delimiter=',',
+               header=('Numerically computed concentration profiles\n'
+                       'column1: x-distance [micro_m]\n'
+                       'cloumn2: c-profile [micro_M] for t_0 = %i min\n'
+                       'cloumn3: c-profile [micro_M] for t_1 = %i min\n'
+                       'cloumn4: c-profile [micro_M] for t_2 = %i min\n'
+                       'cloumn5: c-profile [micro_M] for t_3 = %i min\n' %
+                        (tt[0]/60, tt[1]/60, tt[2]/60, tt[3]/60)))
     # saving averaged DF
-    np.savetxt(savePath+'DF.txt', np.array([D, D_std, F, F_std]).T,
-               delimiter=',')
+    xx_DF = np.concatenate((-deltaX*np.ones(1), xx))
+    np.savetxt(savePath+'DF.txt', np.c_[xx_DF, D, DSTD, F, FSTD],
+               delimiter=',',
+               header=('Diffusivity and free energy profiles from analysis\n'
+                       'column1: x-distance [micro_m]\n'
+                       'cloumn2: average diffusivity [micro_m^2/s]\n'
+                       'cloumn3: stdev of diffusivity [+/- micro_m^2/s]\n'
+                       'cloumn4: average free energy [k_BT]\n'
+                       'cloumn5: stdev of free energy [+/- k_BT]\n'))
+
     # saving Error of top 1% of runs
-    np.savetxt(savePath+'minError.txt', Error[indices[:topPer]])
+    np.savetxt(savePath+'minError.txt', Error[indices[:nbr]], delimiter=',',
+               header=('Minimal error for top %.2f %% runs.' % (topPer*100)))
     # --------------------------- saving data ------------------------------- #
 
     # ------------------------- plotting data ------------------------------- #
     # plotting profiles
-    xx = np.arange(N)
-    plotCon(xx, cc, ccRes, tt, save=True, path=savePath)
+    ps.plotCon(xx, cc, ccRes, tt, save=True, path=savePath)
 
     # plotting averaged D and F
-    plt.figure(1)
-    plt.errorbar(xx, D, c='r', marker='.', yerr=D_std)
-    plt.xlabel('Distance [µm]')
-    plt.ylabel('Diffusivity [µm$^2$/s]')
-    plt.yscale('log')
-    plt.savefig(savePath+'D.pdf')
-
-    plt.figure(2)
-    plt.errorbar(xx, F, c='r', marker='.',  yerr=F_std)
-    plt.xlabel('Distance [µm]')
-    plt.ylabel('Free energy [k$_B$T]')
-    plt.savefig(savePath+'F.pdf')
+    ps.plotDF(xx, D, F, D_STD=DSTD, F_STD=FSTD, save=True, path=savePath)
 
 
 if __name__ == "__main__":

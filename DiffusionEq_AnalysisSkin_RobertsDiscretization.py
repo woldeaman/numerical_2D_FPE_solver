@@ -36,7 +36,7 @@ def plotConSkin(xx, cc, ccRes, tt, save=False, path=None, deltaXX=None):
         plt.gca().set_xlim(right=xx[-1])
         plt.xlabel('Distance [µm]')
         plt.ylabel('Concentration [µM]')
-        l1, = plt.plot(xx[10:cc[j].size+10], cc[j], '--', color=colors[j])
+        l1, = plt.plot(xx[7:cc[j].size+7], cc[j], '--', color=colors[j])
 
         # plot computed only for t > 0, otherwise not computed
         l1s.append([l1])
@@ -68,7 +68,7 @@ def main():
     if not os.path.exists(savePath):
         os.makedirs(savePath)
     # ------------------- experimental parameters ----------------------- #
-    cc = np.array([np.concatenate((np.ones(10)*0.0025, np.zeros(90))),
+    cc = np.array([np.concatenate((np.ones(7)*0.0025, np.zeros(95))),
                    io.readData(path+'p10min.txt')[:73],
                    io.readData(path+'p100min.txt')[:80],
                    io.readData(path+'p1000min.txt')[:80]]).T
@@ -78,21 +78,22 @@ def main():
     N = max([cc[i].size for i in range(1, cc.size)])
     M = cc.size
     # computing discretization lengths
-    X2 = 1  # discretization length in epidermis is 1µm
-    X1 = (400-(3.5*X2))/6.5  # transition between discretizations at bin 7
-    X3 = (20000-(3.5*X2))/6.5  # transition between discretizations at bin 83
+    # # my original discretization
+    # X2 = 1  # discretization length in epidermis is 1µm
+    # X1 = (400-(3.5*X2))/6.5  # transition between discretizations at bin 7
+    # X3 = (20000-(3.5*X2))/6.5  # transition between discretizations at bin 83
+    # using roberts discretization
+    X2 = 1  # in epidermis 1µm
+    X1 = (400-(2.5*X2))/4.5  # 400µm in epidermins
+    X3 = (20000-(4.5*X2))/10.5  # 2cm in deeper skin layers
     deltaX = np.array([X1, X2, X3])
     # vector of discretizations
-    deltaXX = np.concatenate((np.ones(7)*deltaX[0],
+    deltaXX = np.concatenate((np.ones(5)*deltaX[0],
                               np.ones(N+7)*deltaX[1],
-                              np.ones(7)*deltaX[2]))
-    '''
-    I changed np.ones(6)*deltaX[2]) --> np.ones(7)*deltaX[2]) and above
-    I changed N+6 --> N+7, because discretization width is from left to right
-    '''
+                              np.ones(11)*deltaX[2]))
     # vector of different segments
-    segments = np.concatenate((np.ones(10)*0, np.arange(1, N+1),
-                               np.ones(10)*(N+1))).astype(int)
+    segments = np.concatenate((np.zeros(7), np.arange(1, N+1),
+                               np.ones(15)*(N+1))).astype(int)
     # ------------------- experimental parameters ----------------------- #
 
     # -------------------------- loading results --------------------------- #
@@ -105,7 +106,7 @@ def main():
     # loading error values, factor two, because of cost function definition
     Error = np.array([600*np.sqrt(np.sum((results[i].fun[:73]**2)/73) +
                       np.sum((results[i].fun[73:153]**2)/80) +
-                      np.sum((results[i].fun[153:]**2)/80) / (M-1))
+                      np.sum((results[i].fun[153:233]**2)/80) / (M-1))
                       for i in range(I)])
     indices = np.argsort(Error)  # for sorting according to error
 
@@ -141,11 +142,11 @@ def main():
 
     # ------------------------- plotting data ------------------------------- #
     # plotting profiles
-    xx1 = deltaX[0]*np.arange(-9, 1)
-    xx2 = np.arange(1, N+1)*deltaX[1]
-    xx3 = np.arange(N+1, N+11)*deltaX[2]
-    xx = np.concatenate((xx1, xx2, xx3))
-    xx = np.arange(100)
+    # xx1 = deltaX[0]*np.arange(-9, 1)
+    # xx2 = np.arange(1, N+1)*deltaX[1]
+    # xx3 = np.arange(N+1, N+11)*deltaX[2]
+    # xx = np.concatenate((xx1, xx2, xx3))
+    xx = np.arange(102)
     plotConSkin(xx, cc, ccRes, tt, save=True, path=savePath)
 
     # plotting averaged D and F

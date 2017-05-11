@@ -19,12 +19,12 @@ def WMatrixVar(d, f, N, deltaXX, con=False):
     '''
 
     # my original values
-    N1 = 8  # start of variable DF calculation
-    N2 = N+12  # end of variable DF calculation
+    # N1 = 8  # start of variable DF calculation
+    # N2 = N+12  # end of variable DF calculation
 
     # roberts values
-    # N1 = 5  # bin at wich start of variable DF calculation
-    # N2 = N1+86  # bin at wich end of variable DF calculation
+    N1 = 5  # bin at wich start of variable DF calculation
+    N2 = N+9  # bin at wich end of variable DF calculation
 
     # segment1 with new definition for
     # variable binning in areas of D and F const.
@@ -62,10 +62,10 @@ def WMatrixVar(d, f, N, deltaXX, con=False):
 
     if con:
         if np.any(np.array([deltaXX[i] != deltaXX[i+1]
-                            for i in range(N1, N2)])):
+                            for i in range(N1, N2+1)])):
             print('Error: deltaX is not kept constant in segment 2!\n'
                   'deltaX = ',
-                  [deltaXX[i] for i in range(N1, N2)])
+                  [deltaXX[i] for i in range(N1, N2+1)])
             sys.exit()
 
     # segment3 with new definition

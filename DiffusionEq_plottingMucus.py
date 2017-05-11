@@ -65,8 +65,8 @@ def main():
     # for plotting best D and F in the same figure
     ps.plotDF(xx, D, F, save=args.save, path=figPath)
     # plotting concentration profiles for best run
-    ps.plotCon(xx, cc, ccRes, tt, TransIndex, layerD=minD, save=args.save,
-               path=figPath)
+    ps.plotConTrans(xx, cc, ccRes, tt, TransIndex, layerD=minD, save=args.save,
+                    path=figPath)
 
     '''
     add option to plot other data from restData array
