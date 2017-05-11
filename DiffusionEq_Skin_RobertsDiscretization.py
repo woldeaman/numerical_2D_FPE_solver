@@ -28,7 +28,9 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
 
     # pre-processing for d and f vectors
     dPre = df[:(N+2)]  # take input values from trust region algorithm
-    fPre = np.concatenate((np.zeros(1), df[(N+2):]))
+    # fPre = np.concatenate((np.zeros(1), df[(N+2):]))
+    # completely free F
+    fPre = df[(N+2):]
     # defined for keeping d and f constant in certain areas
     segments = np.concatenate((np.zeros(7), np.arange(1, N+1),
                                np.ones(15)*(N+1))).astype(int)
@@ -98,18 +100,17 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
     Ri_0 = [cc[i] - fp.calcC(cc[0], tt[i], T=T)[7:(cc[i].size+7)]
             for i in range(1, M)]
     # all residuals where profile > c_0 is used for numerical computations
-    Ri_j = []
-    for i in range(1, M):
-        for j in range(1, M):
-            if i > j:
-                res = cc[i][:cc[j].size] - fp.calcC(cc[j],
-                                                    (tt[i]-tt[j]),
-                                                    T=T[7:cc[j].size+7,
-                                                        7:cc[j].size+7])
-                Ri_j.append(res)
-
-    residuals = np.concatenate((Ri_0[0], Ri_0[1], Ri_0[2], Ri_j[0], Ri_j[1],
-                                Ri_j[2]))
+    # Ri_j = []
+    # for i in range(1, M):
+    #     for j in range(1, M):
+    #         if i > j:
+    #             res = cc[i][:cc[j].size] - fp.calcC(cc[j],
+    #                                                 (tt[i]-tt[j]),
+    #                                                 T=T[7:cc[j].size+7,
+    #                                                     7:cc[j].size+7])
+    #             Ri_j.append(res)
+    #
+    residuals = np.concatenate((Ri_0[0], Ri_0[1], Ri_0[2]))
 
     if (verb):
         # normalized version as used by Robert
@@ -185,7 +186,7 @@ def main():
 
     # using roberts discretization
     X2 = 1  # in epidermis 1µm
-    X1 = (400-(2.5*X2))/4.5  # 400µm in epidermins
+    X1 = (400-(2.5*X2))/4.5  # 400µm in epidermis
     X3 = (20000-(4.5*X2))/10.5  # 2cm in deeper skin layers
 
     deltaX = np.array([X1, X2, X3])
@@ -193,21 +194,23 @@ def main():
 
     # -------------------- starting ls-optimization ------------------------- #
     # setting bounds, D first and F second
-    # there are a total of 2N+3 fit parameters,
+    # there are a total of 2N+4 fit parameters,
     # N+2 for D (N in epidermis and one for gel and dermis)
-    # and N+1 for F (as F is set to zero in the gel)
-    bndsDUpper = np.ones(N+2)*2000
-    bndsFUpper = np.ones(N+1)*20
+    # and N+2 for F, now freely fitted
+    bndsDUpper = np.ones(N+2)*1000
+    bndsFUpper = np.ones(N+2)*60
     # bndsDLower = np.zeros(N+2)
-    bndsDLower = -np.ones(N+2)
-    bndsFLower = -np.ones(N+1)*20
+    bndsDLower = np.zeros(N+2)
+    bndsFLower = np.ones(N+2)*40
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     # setting initial conditions
     # D is randomly chosen at each point and F is constant throughout
-    DInit = np.random.rand(N+2, 1)*1000
-    FInit = -5
+    # DInit = np.random.rand(N+2, 1)*1000
+    # constant D
+    DInit = np.ones((N+2, 1))*1
+    FInit = 50
 
     # trying Roberts results as initial data
     # path = ('/Users/AmanuelWK/Dropbox/PhD/Projects/FokkerPlanckModeling/'
@@ -222,7 +225,7 @@ def main():
     # FInit = np.concatenate((f[7:-15], np.ones(1)*f[-1]))
 
     results = np.array([optimization(DRange=DInit[:, i]*np.ones(N+2),
-                                     FRange=FInit*np.ones(N+1), bnds=bnds,
+                                     FRange=FInit*np.ones(N+2), bnds=bnds,
                                      cc=cc, tt=tt, debug=conservation,
                                      verb=verbose, deltaX=deltaX)
                         for i in range(DInit[0, :].size)])
