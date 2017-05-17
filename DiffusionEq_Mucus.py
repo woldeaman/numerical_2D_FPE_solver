@@ -96,7 +96,7 @@ def optimization(DRange, FRange, bnds, cc, tt, Dist=None, deltaX=1,
     # running 5x50 with varied starting points based on initVal
     for l in range(5):
         result = op.least_squares(optimize, initVal, bounds=bnds,
-                                  max_nfev=50, tr_solver='exact')
+                                  max_nfev=50)
         initVal = result.x
 
     return result
@@ -125,12 +125,16 @@ def main():
         conservation = False
 
     # reading profiles and take only samples for 4 different time points
-    data = io.readData(path, sep=';')  # changed seperator for newest format
+    data = io.readData(path, sep=',')  # changed seperator for newest format
     xx = data[:, 0]
     cc = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
 
     # pre processing of profiles
-    xx, cc = io.preProcessing(xx, cc)  # smoothing and discarding negative c's
+    xx, cc = io.preProcessing(xx, cc, order=5)  # smoothing and discarding negative c's
+    np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=', ',
+               header='Profiles were smoothed using Savitzky-Golay filter'
+               ' \nCloumn 1: x-distance [micro_m]'
+               '\nColumn 2-5: c-profiles at t0-t3 [micro_M]')
     deltaX = abs(xx[0] - xx[1])
     tt = np.array([0, 300, 600, 900])  # t in seconds
     c0 = 4  # concentration of peptide solution in µM
@@ -141,7 +145,7 @@ def main():
                              np.min(abs(xx - 100)))[0, 0].astype(int)
     # setting reasonable bounds for F and D
     # changed for segmentation analysis
-    bndsDUpper = np.ones(2)*10000
+    bndsDUpper = np.ones(2)*1000
     bndsFUpper = np.ones(1)*20
     bndsDLower = np.zeros(2)
     bndsFLower = -np.ones(1)*20
@@ -149,7 +153,7 @@ def main():
             np.concatenate((bndsDUpper, bndsFUpper)))
 
     FInit = -5
-    DInit = (np.random.rand(512)*10000)
+    DInit = (np.random.rand(500)*1000)
     # for the case of d = 2 we have instant jump, because bin1 = D1, bin2 = D2
     distances = np.arange(2, (2*TransIndex)+1, step=2)
 
