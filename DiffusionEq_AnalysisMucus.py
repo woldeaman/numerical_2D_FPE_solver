@@ -16,10 +16,11 @@ together with transition layer thickness and error for each run
 def main():
     # --------------- parsing command line inputs --------------------------- #
     parser = ap.ArgumentParser()
-    parser.add_argument('path', help='define the relative path to '
-                        'folder containing result.npy file')
-    parser.add_argument('name', help='defines name of experimental'
-                        ' concentration data for which analyis was performed')
+    parser.add_argument('-p', dest='path', type=str,
+                        help='define the path to data for analysis')
+    parser.add_argument('-n', dest='name', type=str,
+                        help='define the name of the file for the analyzed'
+                        ' c-profiles')
     parser.add_argument('-d', '--dsol_const', action='store_true', help='sets '
                         'flag for Dsol = const. mode')
     args = parser.parse_args()
@@ -27,10 +28,7 @@ def main():
     path = args.path
     name = args.name
     # folder to save figures in changes depending on system
-    if sys.platform == "darwin":  # folder for linux
-        savePath = '/Users/AmanuelWK/Desktop/%s/Data/' % name
-    elif sys.platform.startswith("linux"):  # folder for mac
-        savePath = '/home/amanuelwk/Desktop/%s/Data/' % name
+    savePath = path+'results/'
 
     if not os.path.exists(savePath):
         os.makedirs(savePath)
@@ -38,13 +36,10 @@ def main():
     '''Add option for active input '''
 
     # ------------------- experimental parameters ----------------------- #
-    Cdata = io.readData(path+name+'.csv', sep=',')
+    Cdata = io.readData(path+name, sep=',')
     xx = Cdata[:, 0]  # first line in document is x-position
-    # change number of profiles according to analysis type
-    cc = np.array([Cdata[:, 1], Cdata[:, 31], Cdata[:, 61], Cdata[:, 91]]).T
+    cc = Cdata[:, 1:]
     tt = np.array([0, 300, 600, 900])  # t in seconds
-    # pre processing of profiles as in optimization script
-    xx, cc = io.preProcessing(xx, cc)
     deltaX = abs(xx[0] - xx[1])
     c0 = 4  # concentration of peptide solution in µM
     dim = cc[:, 0].size  # number of bins, chosen during pre processing
@@ -54,11 +49,9 @@ def main():
     # same conditions as for analysis need to be kept here
     segments = np.concatenate((np.ones(TransIndex+1)*0,
                                np.ones(dim-TransIndex)*1)).astype(int)
-    '''change distances definition for newer simulations'''
     distances = np.arange(2, (2*TransIndex)+1, step=2)
     # deprecated
     # distances = np.arange(0, (2*TransIndex)+1, 2)
-    '''change to distanceMuM = (distances-1)*deltaX, for newer simulations'''
     distanceMuM = (distances-1)*deltaX
     # deprecated
     # distanceMuM = np.concatenate((deltaX*np.ones(1),

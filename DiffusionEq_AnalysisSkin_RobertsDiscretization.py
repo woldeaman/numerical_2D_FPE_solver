@@ -100,14 +100,18 @@ def main():
     results = np.load(path+'result.npy')
 
     I = results.size  # number of different initial conditions
-    topPer = np.ceil(1*I).astype(int)  # number for top 1% of the runs
+    topPer = np.ceil(0.1*I).astype(int)  # number for top 1% of the runs
 
     # gathering data from simulations
-    # loading error values, factor two, because of cost function definition
-    Error = np.array([600*np.sqrt(np.sum((results[i].fun[:73]**2)/73) +
-                      np.sum((results[i].fun[73:153]**2)/80) +
-                      np.sum((results[i].fun[153:233]**2)/80) / (M-1))
+    # loading error values
+    # Error as computed by robert
+    Error = np.array([np.sqrt((np.sum((results[i].fun[:73]**2)) +
+                               np.sum((results[i].fun[73:153]**2)) +
+                               np.sum((results[i].fun[153:233]**2))) / (3))
                       for i in range(I)])
+    # Error computed from cost function value, factor 2 bc definition of cost
+    # Error2 = np.array([np.sqrt((2/3)*results[i].cost) for i in range(I)])
+
     indices = np.argsort(Error)  # for sorting according to error
 
     # gathering mean of F and D for best 1% of runs
@@ -123,7 +127,8 @@ def main():
                             for i in range(topPer)]), axis=0)
 
     D_best = results[indices[0]].x[:82]
-    F_best = results[indices[0]].x[82:]
+    F_best_notNorm = results[indices[0]].x[82:]
+    F_best = F_best_notNorm - F_best_notNorm[0]
 
     # compute D and F and concentration profiles
     D, F = fp.computeDF(DRes, FRes, shape=segments)
@@ -141,6 +146,8 @@ def main():
     # saving averaged DF
     np.savetxt(savePath+'DF.txt', np.array([D, D_std, F, F_std]).T,
                delimiter=',')
+    # saving best DF
+    np.savetxt(savePath+'DF_best.txt', np.array([Db, Fb]).T, delimiter=',')
     # saving Error of top 1% of runs
     np.savetxt(savePath+'minError.txt', Error[indices[:topPer]])
     # --------------------------- saving data ------------------------------- #

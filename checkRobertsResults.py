@@ -1,12 +1,19 @@
 import numpy as np
 import inputOutput as io
 import DiffusionEq_Skin_RobertsDiscretization as sk
+import FPModel as fp
+import sys
 
 
 def main():
     # --------------------------- reading profiles ------------------------- #
-    path = ('/Users/AmanuelWK/Dropbox/PhD/Projects/FokkerPlanckModeling/'
-            'Skin/Data/')
+    if sys.platform == "darwin":  # folder for mac
+        path = ('/Users/AmanuelWK/Dropbox/PhD/Projects/FokkerPlanckModeling/'
+                'Skin/Data/')
+    elif sys.platform.startswith("linux"):  # folder for linux
+        path = ('/home/amanuelwk/Dropbox/PhD/Projects/FokkerPlanckModeling/'
+                'Skin/Data/')
+
     # # Roberts discretization
     cc = np.array([np.concatenate((np.ones(7)*0.0025, np.zeros(95))),
                    io.readData(path+'ExperimentalData/p10min.txt')[:73],
@@ -34,9 +41,15 @@ def main():
     # read roberts results
     D = np.loadtxt(path+'RobertsResults/D.txt')
     F = np.loadtxt(path+'RobertsResults/F.txt')
+    # read my results
+    # dat = np.loadtxt('/Users/AmanuelWK/Desktop/Cluster/jobs/fokkerPlanckModel/'
+    #                  'skin/0_RobertsDiscretization/results/DF.txt',
+    #                  delimiter=',')
+    # D = dat[:, 0]
+    # F = dat[:, 2]
     df = np.concatenate((D[6:88], F[6:88]))
 
-    sk.resFun(df=df, cc=cc, tt=tt, deltaX=deltaX, debug=True, verb=True)
+    res = sk.resFun(df=df, cc=cc, tt=tt, deltaX=deltaX, debug=True, verb=True)
 
 
 if __name__ == "__main__":

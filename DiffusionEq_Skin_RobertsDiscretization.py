@@ -88,35 +88,21 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
             print('WMatrix 2Sum:\n', np.sum(np.sum(W, 0)))
             sys.exit()
 
-    # calculating vector of residuals for each profile from c_0
-    # RR = [cc[i] -
-    #       fp.calcC(cc[0], tt[i], T=T,
-    #                bc='reflective')[7:(cc[i].size+7)] for i in range(1, M)]
-    # residuals = np.concatenate((RR[0], RR[1], RR[2]))
-
-    # calculating vector of resiuduals for all combinations
-    # hard-coded because no easy workaround
-    # all residuals where c_0 profile is used for numerical computations
+    #  all residuals where c_0 profile is used for numerical computations
     Ri_0 = [cc[i] - fp.calcC(cc[0], tt[i], T=T)[7:(cc[i].size+7)]
             for i in range(1, M)]
-    # all residuals where profile > c_0 is used for numerical computations
-    # Ri_j = []
-    # for i in range(1, M):
-    #     for j in range(1, M):
-    #         if i > j:
-    #             res = cc[i][:cc[j].size] - fp.calcC(cc[j],
-    #                                                 (tt[i]-tt[j]),
-    #                                                 T=T[7:cc[j].size+7,
-    #                                                     7:cc[j].size+7])
-    #             Ri_j.append(res)
-    #
-    residuals = np.concatenate((Ri_0[0], Ri_0[1], Ri_0[2]))
+
+    # residuals = np.concatenate((Ri_0[0], Ri_0[1], Ri_0[2]))
+    # use roberts normalized residuals
+    residuals = np.concatenate((600*Ri_0[0]/np.sqrt(73),
+                                600*Ri_0[1]/np.sqrt(80),
+                                600*Ri_0[2]/np.sqrt(80)))
 
     if (verb):
         # normalized version as used by Robert
-        sigma = 600*np.sqrt((np.sum((residuals[:73]**2)/73) +
-                             np.sum((residuals[73:153]**2)/80) +
-                             np.sum((residuals[153:233]**2)/80)) / (M-1))
+        sigma = np.sqrt((np.sum((residuals[:73]**2)) +
+                         np.sum((residuals[73:153]**2)) +
+                         np.sum((residuals[153:233]**2))) / (M-1))
         E = 0.5*np.sum(residuals**2)  # non-normalized version (used by scipy)
         print("non-normalized: %f \nnormalized: %f \n" % (E, sigma))
 
@@ -135,9 +121,10 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, debug=False,
     # result = op.least_squares(optimize, initVal, bounds=bnds,
     #                           max_nfev=None, tr_solver='exact', verbose=2)
 
-    for i in range(5):
+    for i in range(10):
         result = op.least_squares(optimize, initVal, bounds=bnds,
-                                  max_nfev=50, tr_solver='exact', verbose=2)
+                                  max_nfev=50, xtol=0, ftol=0,
+                                  verbose=2)
         initVal = result.x
 
     return result
@@ -207,9 +194,8 @@ def main():
 
     # setting initial conditions
     # D is randomly chosen at each point and F is constant throughout
-    # DInit = np.random.rand(N+2, 1)*1000
-    # constant D
-    DInit = np.ones((N+2, 1))*1
+    # DInit = np.random.rand(N+2, 10)
+    DInit = np.ones((N+2, 1))
     FInit = 50
 
     # trying Roberts results as initial data

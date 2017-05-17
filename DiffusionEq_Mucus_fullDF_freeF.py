@@ -86,8 +86,7 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0):
     initVal = np.concatenate((DRange, FRange))
     # running freely with standart termination conditions
     result = op.least_squares(optimize, initVal, bounds=bnds,
-                              max_nfev=None, tr_solver='exact',
-                              verbose=scpVerb)
+                              max_nfev=None, verbose=scpVerb)
 
     return result
 
