@@ -121,10 +121,9 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, debug=False,
     # result = op.least_squares(optimize, initVal, bounds=bnds,
     #                           max_nfev=None, tr_solver='exact', verbose=2)
 
-    for i in range(10):
+    for i in range(5):
         result = op.least_squares(optimize, initVal, bounds=bnds,
-                                  max_nfev=50, xtol=0, ftol=0,
-                                  verbose=2)
+                                  max_nfev=50, verbose=2)
         initVal = result.x
 
     return result
