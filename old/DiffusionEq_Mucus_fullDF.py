@@ -31,7 +31,7 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False):
 
     # N paramters to be optimized, D', D and F
     d = df[:(N+1)]
-    f = df[(N+1):]  # letting F completely free
+    f = np.concatenate((np.zeros(1), df[(N+1):]))  # setting f0 = 0
     # calculating W and T matrix and extra variables for open BCs
     W, W10 = fp.WMatrix(d, f, deltaX, bc='open1side')
     # catching singular matrix exception
@@ -134,20 +134,20 @@ def main():
 
     # setting reasonable bounds for F and D
     DBound = 1000
-    # parameters is one more than number of bins, because of c0 at boundary
-    # same number for D and F, because F roams freely now
-    bndsDUpper = np.ones(dim+1)*DBound
-    bndsFUpper = np.ones(dim+1)*70
-    bndsDLower = np.zeros(dim+1)
-    bndsFLower = np.ones(dim+1)*30
+    params = dim+1  # number of parameters for fitting D and F
+    # is one more than number of bins, because of c0 at boundary
+    bndsDUpper = np.ones(params)*DBound
+    bndsFUpper = np.ones(params-1)*20
+    bndsDLower = np.zeros(params)
+    bndsFLower = -np.ones(params-1)*20
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
 
-    FInit = 50
+    FInit = -5
     DInit = (np.random.rand(1)*DBound)
 
-    results = np.array([optimization(DRange=DInit[i]*np.ones(dim+1),
-                                     FRange=FInit*np.ones(dim+1),
+    results = np.array([optimization(DRange=DInit[i]*np.ones(params),
+                                     FRange=FInit*np.ones(params-1),
                                      bnds=bnds, cc=cc, tt=tt, deltaX=deltaX,
                                      c0=c0, verb=verbosity)
                         for i in range(DInit.size)])

@@ -92,11 +92,18 @@ def Laplace_full(s, x):
     # F = -0.971  # F Value from simulation, in kB*T
 
     # values for negatively charged peptide
-    xB = 0.10611  # interface location in [mm]
-    xE = 0.61791  # right end of domain in [mm], for negatively charged peptide
-    D_Prime = 572.815*360E-6  # D' Value from Simulation, in mm^2/h
-    D = 107.680*360E-6  # D Value from Simulation, in mm^2/h
-    F = -0.063  # F Value from simulation, in kB*T
+    # xB = 0.10611  # interface location in [mm]
+    # xE = 0.61791  # right end of domain in [mm], for negatively charged peptide
+    # D_Prime = 572.815*360E-6  # D' Value from Simulation, in mm^2/h
+    # D = 107.680*360E-6  # D Value from Simulation, in mm^2/h
+    # F = -0.063  # F Value from simulation, in kB*T
+
+    # values for testcase
+    xB = 0.05
+    xE = 0.1
+    D_Prime = 1E-5
+    D = D_Prime
+    F = 0
 
     # rescaled variables
     delta = np.sqrt(D_Prime/D)
@@ -122,16 +129,43 @@ def Laplace_full(s, x):
 
 
 def main():
-    # for solution to diffusion problem
-    # right end of domain in [mm]
-    # xE = 0.59082  # for positively charged peptide
-    xE = 0.61791  # for negatively charged peptide
+    # # for solution to diffusion problem
+    # # right end of domain in [mm]
+    # # xE = 0.59082  # for positively charged peptide
+    # xE = 0.61791  # for negatively charged peptide
+    # # places for which to compute concentration
+    # xx = np.linspace(0, xE, num=100)
+    # # One Laplace Transform for each x value
+    # F_s = np.array([ft.partial(Laplace_full, x=xx[i])
+    #                 for i in range(xx.size)])
+    # # Parameters for inverse FFT
+    # N = 2**25  # number of frequency samples
+    # f_max = 300  # Nyquist frequency
+    # sigma = 1  # real part of laplace variable s, needs to be larger than poles
+    # dt = 1/(2*f_max)  # time discretization
+    # tt = np.arange(N)*dt  # time vector in hours (for plotting)
+    # # for many xx, not storable in one large array, too much memory needed
+    # # --> export cc[x_i, tt] for each x_i separately and afterwards combine
+    # np.save('time.npy', tt[:1500])
+    # for i in range(F_s.size):
+    #     cc = invertLPT(F_s[i], f_max=f_max, N=N, sigma=sigma,
+    #                    plotFT=False)
+    #     np.save('c_x%s.npy' % i, cc[:1500])
+    #     # only save first 1500 entries, corresponding to 150 min of signal
+    #     # no more is needed, as experiments go as far as 15 min
+    #
+    # # combine all exported profiles into one array
+    # ccProfiles = np.array([np.load('c_x%s.npy' % i) for i in range(F_s.size)])
+    # np.save('cProfiles.npy', ccProfiles)
+
+    # for simple constant D case
+    xE = 0.1
     # places for which to compute concentration
     xx = np.linspace(0, xE, num=100)
     # One Laplace Transform for each x value
     F_s = np.array([ft.partial(Laplace_full, x=xx[i])
                     for i in range(xx.size)])
-    # Paramters for inverse FFT
+    # Parameters for inverse FFT
     N = 2**25  # number of frequency samples
     f_max = 300  # Nyquist frequency
     sigma = 1  # real part of laplace variable s, needs to be larger than poles
@@ -150,28 +184,6 @@ def main():
     # combine all exported profiles into one array
     ccProfiles = np.array([np.load('c_x%s.npy' % i) for i in range(F_s.size)])
     np.save('cProfiles.npy', ccProfiles)
-
-    # # # for test function
-    # N = 2**24
-    # f_max = 80
-    # sigma = 1
-    # dt = 1/(2*f_max)
-    # tt = np.arange(N)*dt
-    # iLPT = invertLPT(test_F, f_max=f_max, N=N, sigma=sigma, plotFT=True)
-    # plt.plot(tt[:2000], iLPT[:2000], 'b-')
-    # # plt.plot(tt[:500], sp.erfc(1/np.sqrt(tt[:500])), 'g-')
-    # plt.show()
-
-    # # testing x = 0
-    # N = 2**22
-    # f_max = 20
-    # sigma = 1
-    # dt = 1/(2*f_max)
-    # tt = np.arange(N)*dt
-    # F_s = ft.partial(Laplace_full, x=0)
-    # iLPT = invertLPT(F_s, f_max=f_max, N=N, sigma=sigma, plotFT=True)
-    # plt.plot(tt[:100], iLPT[:100], 'b-')1
-    # plt.show()
 
 
 if __name__ == "__main__":

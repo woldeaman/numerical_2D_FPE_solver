@@ -62,7 +62,7 @@ def preProcessing(xx, cc, order=3, window=None, bins=100):
             window = int(profiles[:, 0].size/2)
 
     filtered = np.array([sg.savgol_filter(
-        profiles[:, i], window, order, mode='mirror')
+        profiles[:, i], window, order, mode='nearest')
                          for i in range(profiles[0, :].size)]).T
     interpolated = [ip.UnivariateSpline(xx, filtered[:, i], s=0.5)
                     for i in range(filtered[0, :].size)]
