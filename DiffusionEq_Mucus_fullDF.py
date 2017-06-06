@@ -11,10 +11,126 @@ import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
 import argparse as ap
+import plottingScripts as ps
+import os
 # for debugging
 # import sys
 
 startTime = time.time()
+
+
+def analysis(result, xx=None, cc=None, tt=None, plot=False, per=0.1,
+             savePath=None):
+    '''
+    Function analyses results from ls-optimization,
+    if given comparison plots of results and original concentration profiles
+    cc[i, :, :] at time tt[i] will be made, where D and F is averaged over
+    top 'per' percent (standart is 0.1 - averaged over top 10%)
+    '''
+
+    # ----------------- setting working parameters --------------------- #
+    # saving output in current results folder in current directory
+    if savePath is None:
+        savePath = os.path.join(os.getcwd(), 'results/')
+        if not os.path.exists(savePath):
+            os.makedirs(savePath)
+
+    I = result.size  # number of different ls-opti runs
+    nbr = np.ceil(per*I).astype(int)  # number for top x% of the runs
+    if plot:
+        M = tt.size  # number of different profiles
+
+    N = int(result[0].x.size/2 - 1)  # number of bins, -1 because c0 - constant
+    n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
+    if xx is None:
+        xx = np.arange(N)
+    deltaX = abs(xx[0] - xx[1])
+    c0 = 4  # concentration of peptide solution in µM
+    # ----------------- setting working parameters --------------------- #
+
+    # -------------------------- loading results --------------------------- #
+    # gathering data from simulations
+    # loading error values, factor two, because of cost function definition
+    Error = np.array([np.sqrt(2*result[i].cost / (n*N))
+                      for i in range(I)])
+    indices = np.argsort(Error)  # for sorting according to error
+
+    # gathering mean of F and D for best 1% of runs
+    D_pre = np.mean(np.array([result[indices[i]].x[:N+1]
+                              for i in range(nbr)]), axis=0)
+    # average over D because only D in between bins is of importance
+    D = np.array([(D_pre[i] + D_pre[i+1])/2 for i in range(D_pre.size-1)])
+    F_pre = np.mean(np.array([result[indices[i]].x[N+1:]
+                              for i in range(nbr)]), axis=0)
+    F = F_pre - F_pre[0]
+    # gathering standart deviation for top 1% of runs
+    DSTD_pre = np.std(np.array([result[indices[i]].x[:N+1]
+                                for i in range(nbr)]), axis=0)
+    # average over D because only D in between bins is of importance
+    DSTD = np.array([(DSTD_pre[i] + DSTD_pre[i+1])/2
+                     for i in range(DSTD_pre.size-1)])
+    FSTD = np.std(np.array([result[indices[i]].x[N+1:]
+                            for i in range(nbr)]), axis=0)
+
+    # gathering best D and F for computation of profiles
+    D_best_pre = result[indices[0]].x[:N+1]
+    D_best = np.array([(D_best_pre[i] + D_best_pre[i+1])/2  # average D
+                       for i in range(D_best_pre.size-1)])
+    F_best_pre = result[indices[0]].x[N+1:]
+    F_best = F_best_pre - F_best_pre[0]
+
+    # computing WMatrix for open boundary conditions
+    W, W10 = fp.WMatrix(D_best, F_best, deltaX=deltaX, bc='open1side')
+
+    # computing concentration profiles for best D and F
+    ccRes = np.array([fp.calcC(cc[:, 0], tt[j], W=W, W10=W10, c0=c0,
+                               bc='open1side') for j in range(tt.size)]).T
+    # -------------------------- loading results --------------------------- #
+
+    # --------------------------- saving data ------------------------------- #
+    # extended xx and cc vector for boundary condition
+    xx_ext = np.concatenate((-deltaX*np.ones(1), xx))
+    ccRes_ext = np.concatenate((np.ones((1, 4))*c0, ccRes))
+
+    # saving analyzed data for best results for plotting
+    np.savetxt(savePath+'concentrationRes.txt', np.c_[xx_ext, ccRes_ext],
+               delimiter=',',
+               header=('Numerically computed concentration profiles\n'
+                       'column1: x-distance [micro_m]\n'
+                       'cloumn2: c-profile [micro_M] for t_0 = %i min\n'
+                       'cloumn3: c-profile [micro_M] for t_1 = %i min\n'
+                       'cloumn4: c-profile [micro_M] for t_2 = %i min\n'
+                       'cloumn5: c-profile [micro_M] for t_3 = %i min\n' %
+                        (tt[0]/60, tt[1]/60, tt[2]/60, tt[3]/60)))
+    # saving averaged DF
+    np.savetxt(savePath+'DF.txt', np.c_[xx_ext, D, DSTD, F, FSTD],
+               delimiter=',',
+               header=('Diffusivity and free energy profiles from analysis\n'
+                       'column1: x-distance [micro_m]\n'
+                       'cloumn2: average diffusivity [micro_m^2/s]\n'
+                       'cloumn3: stdev of diffusivity [+/- micro_m^2/s]\n'
+                       'cloumn4: average free energy [k_BT]\n'
+                       'cloumn5: stdev of free energy [+/- k_BT]\n'))
+    # saving best DF
+    np.savetxt(savePath+'DF_best.txt', np.c_[xx_ext, D_best, F_best],
+               delimiter=',',
+               header=('Diffusivity and free energy profiles with lowest '
+                       'error from analysis\n'
+                       'column1: x-distance [micro_m]\n'
+                       'cloumn2: diffusivity [micro_m^2/s]\n'
+                       'cloumn3: free energy [k_BT]\n'))
+
+    # saving Error of top 1% of runs
+    np.savetxt(savePath+'minError.txt', Error[indices[:nbr]], delimiter=',',
+               header=('Minimal error for top %.2f %% runs.' % (per*100)))
+    # --------------------------- saving data ------------------------------- #
+
+    # ------------------------- plotting data ------------------------------- #
+    if plot:
+        # plotting profiles
+        ps.plotCon(xx, cc, ccRes, tt, save=True, path=savePath)
+        # plotting averaged D and F
+        ps.plotDF(xx, D, F, D_STD=DSTD, F_STD=FSTD, save=True, path=savePath)
 
 
 # function for computation of residuals, given to optimization function as
@@ -31,7 +147,7 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False):
 
     # N paramters to be optimized, D', D and F
     d = df[:(N+1)]
-    f = np.concatenate((np.zeros(1), df[(N+1):]))  # setting f0 = 0
+    f = df[(N+1):]  # letting F completely free
     # calculating W and T matrix and extra variables for open BCs
     W, W10 = fp.WMatrix(d, f, deltaX, bc='open1side')
     # catching singular matrix exception
@@ -110,19 +226,28 @@ def main():
 
     # -------------- reading and pre-processing profiles ------------------- #
     # reading profiles and take only samples for 4 different time points
-    data = io.readData(args.path, sep=',')  # change seperator accordingly
+    data = io.readData(args.path, sep=';')  # change seperator accordingly
 
     # pre processing of profiles
     # filtering and setting negative c-values to zero
     print('\nReading data and starting pre-processing.')
     xx_exp = data[:, 0]
     cc_exp = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
-    xx, cc = io.preProcessing(xx_exp, cc_exp, order=5)
-    np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=', ',
+    xx, cc = io.preProcessing(xx_exp, cc_exp, order=5,
+                              window=cc_exp[:, 0].size/4)
+    np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=',',
                header='Profiles were smoothed using Savitzky-Golay filter'
                ' \nCloumn 1: x-distance [micro_m]'
                '\nColumn 2-5: c-profiles at t0-t3 [micro_M]')
     print('Finished pre-processing and saved smoothed profiles.')
+
+    # plotting smoothed and original data as comparison
+    # import matplotlib.pyplot as plt
+    # import sys
+    # plt.plot(xx_exp, cc_exp, '--', label='original')
+    # plt.plot(xx, cc, '-', label='smoothed')
+    # plt.show()
+    # sys.exit()
 
     tt = np.array([0, 300, 600, 900])  # t in seconds
     c0 = 4  # concentration of peptide solution in µ
@@ -133,26 +258,31 @@ def main():
     # -------------- reading and pre-processing profiles ------------------- #
 
     # setting reasonable bounds for F and D
+    # and setting number of runs
     DBound = 1000
-    params = dim+1  # number of parameters for fitting D and F
-    # is one more than number of bins, because of c0 at boundary
-    # one parameter less for F, since we set F_0 = 0
-    bndsDUpper = np.ones(params)*DBound
-    bndsFUpper = np.ones(params-1)*20
-    bndsDLower = np.zeros(params)
-    bndsFLower = -np.ones(params-1)*20
+    FBound = 20
+    Runs = 100
+    # parameters is one more than number of bins, because of c0 at boundary
+    # same number for D and F, because F roams freely now
+    bndsDUpper = np.ones(dim+1)*DBound
+    bndsFUpper = np.ones(dim+1)*FBound
+    bndsDLower = np.zeros(dim+1)
+    bndsFLower = np.ones(dim+1)*(-FBound)
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
 
-    FInit = -5
-    DInit = (np.random.rand(1)*DBound)
+    FInit = 0
+    DInit = (np.random.rand(dim+1, Runs)*DBound)
 
-    results = np.array([optimization(DRange=DInit[i]*np.ones(params),
-                                     FRange=FInit*np.ones(params-1),
-                                     bnds=bnds, cc=cc, tt=tt, deltaX=deltaX,
-                                     c0=c0, verb=verbosity)
-                        for i in range(DInit.size)])
-    np.save('result.npy', results)
+    results = []
+    for i in range(Runs):
+        results.append(optimization(DRange=DInit[:, i],
+                                    FRange=FInit*np.ones(dim+1),
+                                    bnds=bnds, cc=cc, tt=tt, deltaX=deltaX,
+                                    c0=c0, verb=verbosity))
+        np.save('result.npy', np.array(results))
+
+    analysis(np.array(results), xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
 
 
 if __name__ == "__main__":

@@ -96,11 +96,8 @@ def plotCon(xx, cc, ccRes, tt, c0=4, save=False, path=None):
         plt.ylabel('Concentration [µM]')
         l1, = plt.plot(xx, cc[:, j], '--', color=colors[j])
         l1s.append([l1])
-
-        # plot computed only for t > 0, otherwise not computed
-        if j > 0:
-            l2, = plt.plot(xxRes, ccRes[:, j], '-', color=colors[j])
-            l2s.append([l2])
+        l2, = plt.plot(xxRes, ccRes[:, j], '-', color=colors[j])
+        l2s.append([l2])
     # plotting two legends, for color and linestyle
     legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=1)
     plt.legend([l[0] for l in l1s], ["%d min" % (tt[i]/60)

@@ -5,11 +5,61 @@ import time
 import sys
 import scipy.optimize as op
 import matplotlib.pyplot as plt
+import scipy.linalg as al
+import numpy.linalg as la
+import scipy.special as sp
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 import functools as ft
 from matplotlib import cm
 import os
 startTime = time.time()
+
+
+def plotting(X, Y, F, D, tt, cc, ccRes=None, savePath=''):
+    # plotting results
+    fig = plt.figure()  # D and F in one figure
+    ax = fig.add_subplot(121, projection='3d')
+    ax.plot_surface(X, Y, F, cmap=cm.coolwarm, antialiased=True)
+    ax.set_title('Free Energy')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('F [k$_B$T]')
+    ax = fig.add_subplot(122, projection='3d')
+    ax.plot_surface(X, Y, D, cmap=cm.coolwarm, antialiased=True)
+    ax.set_title('Diffusivity')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('D [bins$^2$/timestep]')
+    plt.savefig(savePath+'DF.pdf')
+
+    if ccRes is not None:
+        cMax = np.max([ccRes, cc])
+        cMin = np.min([ccRes, cc])
+    else:
+        cMax = np.max(cc)
+        cMin = np.min(cc)
+
+    M = tt.size
+    fig = plt.figure()  # concentration profiles in second figures
+    row = np.ceil(M/2)  # number of rows for c-plot
+    col = np.floor(M/2)  # number of columns for c-plot
+
+    for i in range(M):
+        ax = fig.add_subplot(row, col, i+1, projection='3d')
+        if ccRes is not None:
+            l1 = ax.plot_wireframe(X, Y, ccRes[i], antialiased=True,
+                                   label='Numerical')
+        else:
+            l1 = ''
+        l2 = ax.plot_wireframe(X, Y, cc[i, :, :], linestyles='dashed',
+                               label='Original', antialiased=True)
+        ax.set_title('t = %i' % tt[i])
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Concentration')
+        ax.set_zlim(cMin, cMax)
+    ax.legend(handles=[l1, l2])
+    plt.savefig(savePath+'profiles.pdf')
 
 
 def analysis(result, XY=None, cc=None, tt=None, plot=False, per=0.1, dimX=None,
@@ -90,7 +140,8 @@ def analysis(result, XY=None, cc=None, tt=None, plot=False, per=0.1, dimX=None,
     # --------------- computing and plotting profiles  ----------------- #
     if plot:
         # computing profiles for each timepoint
-        ccRes = [computeC(tt[i], cc[0, :, :], D_best, F_best, dt=dt)
+        ccRes = [computeC(tt[i], cc[0, :, :].reshape(dimX*dimY),
+                          D_best, F_best, dt=dt).reshape(dimX, dimY)
                  for i in range(M)]
 
         # saving concentration profiles
@@ -105,131 +156,125 @@ def analysis(result, XY=None, cc=None, tt=None, plot=False, per=0.1, dimX=None,
             for i, array in enumerate([X, Y] + ccRes):
                 outfile.write(headers[i].encode('utf-8'))  # write array name
                 np.savetxt(outfile, array, fmt='%-7.2f')  # save array
-
-        # plotting results
-        fig = plt.figure()  # D and F in one figure
-        ax = fig.add_subplot(121, projection='3d')
-        ax.plot_surface(X, Y, F_avg, cmap=cm.coolwarm, antialiased=True)
-        ax.set_title('Free Energy')
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('F [k$_B$T]')
-        ax = fig.add_subplot(122, projection='3d')
-        ax.plot_surface(X, Y, D_avg, cmap=cm.coolwarm, antialiased=True)
-        ax.set_title('Diffusivity')
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('D [bins$^2$/timestep]')
-        plt.savefig(savePath+'DF.pdf')
-
-        cMax = np.max([ccRes, cc])
-        cMin = np.min([ccRes, cc])
-        fig = plt.figure()  # concentration profiles in second figures
-        row = np.ceil(M/2)  # number of rows for c-plot
-        col = np.floor(M/2)  # number of columns for c-plot
-
-        for i in range(M):
-            ax = fig.add_subplot(row, col, i+1, projection='3d')
-            l1 = ax.plot_wireframe(X, Y, ccRes[i], antialiased=True,
-                                   label='Numerical')
-            l2 = ax.plot_wireframe(X, Y, cc[i, :, :], linestyles='dashed',
-                                   label='Original', antialiased=True)
-            ax.set_title('t = %i' % tt[i])
-            ax.set_xlabel('X')
-            ax.set_ylabel('Y')
-            ax.set_zlabel('Concentration')
-            ax.set_zlim(cMin, cMax)
-        ax.legend(handles=[l1, l2])
-        plt.savefig(savePath+'profiles.pdf')
+        # plotting D, F and computed and original profiles
+        plotting(X, Y, F_avg, D_avg, cc, ccRes, tt)
     # --------------- computing and plotting profiles  ----------------- #
 
 
-def wRates(xi, yi, xj, yj, D, F, dx):
+def WMatrix(D, F, dimY=None, dx=1):
     '''
-    Function computes rates to go from (xi, yi) to (xj, yj) based
-    on 2D D and F profiles
+    Function computes rate matrix for 2D systems, here the reduced index i
+    is used defined as i = dimY*x + y, with dimY - number of bins in y-disc.
+    D and F have to be reduced to 1D-index too in order for this to work!
     '''
     # using auxillary functions gFunc and fFunc as proposed by
     # Grima et. al - "Accurate discretization of advection-diffusion equations"
     # (2004) PRE https://doi.org/10.1103/PhysRevE.70.036703
-    def gFunc(x, y):
-        return np.sqrt(D[x, y])*np.exp(F[x, y]/2)  # F in kB*T
+    def g(i):
+        return np.sqrt(D[i])*np.exp(F[i]/2)  # F in kB*T
 
-    def fFunc(x, y):
-        return np.sqrt(D[x, y])*np.exp(-F[x, y]/2)  # F in kB*T
+    def f(i):
+        return np.sqrt(D[i])*np.exp(-F[i]/2)  # F in kB*T
+    # wRate(i --> j) = (f(j)*g(i))/(dx**2)
 
-    # valid for n-dimensions
-    return (fFunc(xj, yj)*gFunc(xi, yi))/(dx**2)
+    N = D.size  # size of WMatrix is (dimX*dimY)x(dimX*dimY)
+    if dimY is None:
+        dimY = np.sqrt(N)  # equal discretization assumed if not specified
+
+    #  first compute transition rates to come to bin i
+    W = np.array([[f(i-1)*g(j-1)/(dx**2)
+                   # only possible to go to neighbouring bins
+                   if(
+                       # nearest neighbours for first column
+                       ((i-1) % dimY == 0 and
+                        (abs(j-i) == dimY or
+                         j == i+1 or
+                         j == i+dimY+1 or
+                         j == i-dimY+1))
+                       or
+                       # nearest neighbours for last column
+                       (i % dimY == 0 and
+                        (abs(j-i) == dimY or
+                         j == i-1 or
+                         j == i+dimY-1 or
+                         j == i-dimY-1))
+                       or
+                       # nearest neighbours central bins
+                       (((i-1) % dimY != 0 and i % dimY != 0) and
+                        (abs(j-i) == dimY or
+                         abs(j-i) == 1 or
+                         abs(j-i-dimY) == 1 or
+                         abs(j-i+dimY) == 1))
+                       )
+                   else 0
+                   for j in range(1, N+1)] for i in range(1, N+1)])
+    # indices are shifted because of modulo operator, doesn't handle 0 properly
+
+    # then add rates to leave on main diagonal from original matrix
+    for i in range(N):
+        W[i, i] = -np.sum([W[j, i] for j in range(N)])
+
+    if np.any(np.sum(W, 0) > 1E-10):
+        print('WMatrix not row stochastic!')
+
+    return W
 
 
-def computeC(n, c, D, F, dt=0.01, dx=1):
+def computeC(cc, tt, W=None, T=None, D=None, F=None, dimY=None, dx=1):
     '''
-    Function computes concentration profile after n timesteps
-    given an initial concentration profile c0,
-    based on F and D profiles with temporal discretization dt and spatial
-    discretization dx
+    Calculates concentration profiles at time t from W or T matrix with
+    reflective boundaries, based on concentration profile cc
     '''
+    # calculate only variables that are not given
+    if T is None:
+        if W is None:
+            if (D is None) or (F is None):
+                print('Error: You gotta give me something... no T, W, D or '
+                      'F given!')
+                sys.exit()
+            else:
+                W = WMatrix(D, F, dimY=dimY, dx=dx)
+                T = al.expm(W)  # exponential of W
+        else:
+            T = al.expm(W)  # exponential of W
 
-    xMax = c[:, 0].size  # x-dimension
-    yMax = c[0, :].size  # y-dimension
-    cTot = np.sum(c)  # store total concentration for checks
-
-    # iterative computation of concentration profile
-    for t in range(n):
-        J = np.zeros((xMax, yMax))
-        # J is flux matrix computed from transition-rates
-        for x in range(xMax):
-            for y in range(yMax):
-                # flux coming to bin x, y
-                coming = [[wRates(xI, yI, x, y, D, F, dx)*c[xI, yI]
-                           if ((xI, yI) != (x, y)
-                               and 0 <= xI < xMax
-                               and 0 <= yI < yMax) else 0  # sets BCs
-                           for xI in range(x-1, x+2)]
-                          for yI in range(y-1, y+2)]
-                # flux leaving bin x, y
-                going = [[wRates(x, y, xI, yI, D, F, dx)*c[x, y]
-                          if ((xI, yI) != (x, y)
-                              and 0 <= xI < xMax
-                              and 0 <= yI < yMax) else 0  # sets BCs
-                          for xI in range(x-1, x+2)]
-                         for yI in range(y-1, y+2)]
-                J[x, y] = (sum(sum(i) for i in coming) -
-                           sum(sum(i) for i in going))  # local flux at x, y
-        c = c + J*dt  # explicit euler used for temporal discretization
-        # check for conserved concentration
-        if abs(np.sum(c)-cTot) > 1E-10*np.mean(c):
-            print('Careful, concentration is not conserved at timestep %f!'
-                  % t)
-    return c
+    return np.dot(la.matrix_power(T, tt), cc)
 
 
-def resFun(df, c, tt, dx=1, dt=0.01):
+def resFun(df, cc, tt, dx=1):
     '''
     Function computes vector of residuals for diffusivity and free energy
-    vector df, concentration profiles c[i, :, :] at times tt[i],
-    discretization dx and timestep dt.
+    vector df, concentration profiles c[i, :, :] at times tt[i] and
+    discretization dx width
     '''
 
-    dimX = c[0, :, 0].size  # x-dimension
-    dimY = c[0, 0, :].size  # y-dimension
+    dimX = cc[0, :, 0].size  # x-dimension
+    dimY = cc[0, 0, :].size  # y-dimension
     M = tt.size  # number of profiles at different times
-    # reshaping input vector into d and f matrices
-    d = np.reshape(df[:int(df.size/2)], (dimX, dimY))
-    f = np.reshape(df[int(df.size/2):], (dimX, dimY))
+    # gathering d and f
+    d = df[:int(df.size/2)]
+    f = df[int(df.size/2):]
+    # reshaping concentration matrix to only work with vectors
+    cc = [cc[i, :, :].reshape(dimX*dimY) for i in range(M)]
 
     # computing profiles
-    # tt - time, for now still in n timesteps dt
-    cComp = [computeC(tt[i], c[0, :, :], d, f, dt, dx) for i in range(M)]
+    W = WMatrix(d, f, dimY=dimY, dx=dx)
+    T = al.expm(W)
     # normalized residuals
-    res = np.zeros((M, dimX, dimY))
+    n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
+    res = np.zeros((n, dimX*dimY))
+    k = 0
     for i in range(M):
-        res[i, :, :] = (c[i, :, :] - cComp[i])/np.sqrt(c.size*M)
+        for j in range(M):
+            if i > j:
+                res[k, :] = ((cc[i] - computeC(cc[j], tt[i]-tt[j], T=T))
+                             / np.sqrt(cc[i].size*n))
+                k = k+1
 
-    return res.reshape(dimX*dimY*M)
+    return res.reshape(res.size)
 
 
-def optimization(DInit, FInit, bndsD, bndsF, c, tt, dx=1, dt=0.01, verb=0):
+def optimization(DInit, FInit, bndsD, bndsF, c, tt, dx=1, verb=0):
     '''
     Helper function for least squares optimization,
     DInit and FInit are start values for D and F, bdns defines bounds for
@@ -238,7 +283,7 @@ def optimization(DInit, FInit, bndsD, bndsF, c, tt, dx=1, dt=0.01, verb=0):
     function returns result object of ls-optimization algorithm
     '''
 
-    optimize = ft.partial(resFun, c=c, tt=tt, dx=dx, dt=dt)
+    optimize = ft.partial(resFun, c=c, tt=tt, dx=dx)
     bounds = (np.concatenate((np.ones(DInit.size)*bndsD[0],
                               np.ones(FInit.size)*bndsF[0])),
               np.concatenate((np.ones(DInit.size)*bndsD[1],
@@ -259,50 +304,56 @@ def main():
     # | ...                        like a coordinate system tilted
     # v x                          at a right angle
 
+    # defining grid and initial distribution
     dimX = 5
     dimY = 5
-    cInit = 50
-    # middle = int(dimX/2)
+    cInit = 4
+    c0 = np.zeros((dimX, dimY))
+    c0[0, 0] = cInit
     # meshgrid function needs X, Y in switchted order for correct ouput
     X, Y = np.meshgrid(np.arange(dimY), np.arange(dimX))
 
-    D = np.ones((dimX, dimY))
+    # setting D and F
+    D = np.ones((dimX, dimY))/100
+    # for i in range(dimX):
+        # D[:, ]
     F = np.zeros((dimX, dimY))
-    for i in range(dimY):
-        F[:, i] = -np.arange(dimX)
-    c0 = np.ones((dimX, dimY))*cInit
+    # for i in range(dimY):
+        # F[:, i] = -np.arange(dimX)
+    print(F)
 
     # compute profiles from given d and f
-    tt = np.array([0, 10, 50, 150])
-    c1 = computeC(10, c0, D, F, dt=0.00001)
-    c2 = computeC(40, c1, D, F, dt=0.00001)
-    c3 = computeC(100, c2, D, F, dt=0.00001)
-    cInput = np.array([c0, c1, c2, c3])
-    print(np.sum(c0), np.sum(c1), np.sum(c2), np.sum(c3))
-    # saving concentration profiles
-    cWrite = [c0, c1, c2, c3]
-    headers = ['# Array1: X-Mesh [µm]\n', '# Array2: Y-Mesh [µm]\n']
-    for i in range(len(cWrite)):
-        headers.append('# Array%i: c-profile [µM] for t_%i = %i min\n' %
-                       (i, i, tt[i]))
-    with open('cProfiles.txt', 'wb') as outfile:
-        # writing header
-        outfile.write('# Original concentration profiles\n'.encode('utf-8'))
-        for i, array in enumerate([X, Y] + cWrite):
-            outfile.write(headers[i].encode('utf-8'))  # write array name
-            np.savetxt(outfile, array, fmt='%-7.2f')  # save array
+    tt = np.array([0, 300, 600, 900])
 
-    # try to refind d and f using ls-optimization
-    boundsD = (0, 10)  # bounds for D
-    boundsF = (-10, 10)  # bounds for F
-    DInit = np.random.rand(dimX, dimY, 12)*5
-    FInit = np.ones((dimX, dimY))*(-5)
+    cInput = [computeC(c0.reshape(c0.size), tt[i], D=D.reshape(D.size), F=F.reshape(F.size),
+                       dimY=dimY) for i in range(tt.size)]
+    print([np.sum(cInput[i]) for i in range(len(cInput))])
+
+    plotting(X, Y, F, D, tt, np.array(cInput))
+    # saving concentration profiles
+    # cWrite = [c0, c1, c2, c3]
+    # headers = ['# Array1: X-Mesh [µm]\n', '# Array2: Y-Mesh [µm]\n']
+    # for i in range(len(cWrite)):
+    #     headers.append('# Array%i: c-profile [µM] for t_%i = %i min\n' %
+    #                    (i, i, tt[i]))
+    # with open('cProfiles.txt', 'wb') as outfile:
+    #     # writing header
+    #     outfile.write('# Original concentration profiles\n'.encode('utf-8'))
+    #     for i, array in enumerate([X, Y] + cWrite):
+    #         outfile.write(headers[i].encode('utf-8'))  # write array name
+    #         np.savetxt(outfile, array, fmt='%-7.2f')  # save array
+    #
+    # # try to refind d and f using ls-optimization
+    # boundsD = (0, 10)  # bounds for D
+    # boundsF = (-10, 10)  # bounds for F
+    # DInit = np.random.rand(dimX, dimY, 12)*5
+    # FInit = np.ones((dimX, dimY))*(-5)
     # result = np.array([optimization(DInit[:, :, i], FInit, boundsD, boundsF,
     #                                 cInput, tt, dt=0.000001, verb=2)
     #                    for i in range(12)])
     # np.save('result.npy', result)
-    result = np.load('/Users/AmanuelWK/Dropbox/PhD/GitHub/FokkerPlanckModeling/2DModel/result.npy')
-    analysis(result, XY=[X, Y], cc=cInput, tt=tt, plot=True, per=1, dt=0.00001)
+    # result = np.load('/Users/AmanuelWK/Dropbox/PhD/GitHub/FokkerPlanckModeling/2DModel/result.npy')
+    # analysis(result, XY=[X, Y], cc=cInput, tt=tt, plot=True, per=1, dt=0.00001)
 
 
 if __name__ == "__main__":
