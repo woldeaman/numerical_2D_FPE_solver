@@ -12,9 +12,9 @@ import functools as ft
 import scipy.optimize as op
 import argparse as ap
 import plottingScripts as ps
+import matplotlib.pyplot as plt
 import os
-# for debugging
-# import sys
+import sys
 
 startTime = time.time()
 
@@ -216,6 +216,9 @@ def main():
     parser.add_argument('-v', dest='verbosity', type=int, help='set '
                         'verbosity level ranging from 0 - no output to 2 - '
                         'full output, -1 - means custom verbose mode')
+    parser.add_argument('-pre', dest='pre', action='store_true',
+                        help='Only look at raw data and pre-processing'
+                        'results. Does not start analysis.')
 
     args = parser.parse_args()
     if args.verbosity is None:
@@ -226,28 +229,35 @@ def main():
 
     # -------------- reading and pre-processing profiles ------------------- #
     # reading profiles and take only samples for 4 different time points
-    data = io.readData(args.path, sep=';')  # change seperator accordingly
+    try:  # change seperator accordingly
+        data = io.readData(args.path, sep=';')
+    except ValueError:
+        data = io.readData(args.path, sep=',')
 
     # pre processing of profiles
     # filtering and setting negative c-values to zero
     print('\nReading data and starting pre-processing.')
     xx_exp = data[:, 0]
     cc_exp = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
-    xx, cc = io.preProcessing(xx_exp, cc_exp, order=5,
-                              window=cc_exp[:, 0].size/4)
+    xx, cc = io.preProcessing(xx_exp, cc_exp, order=5)
     np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=',',
                header='Profiles were smoothed using Savitzky-Golay filter'
                ' \nCloumn 1: x-distance [micro_m]'
                '\nColumn 2-5: c-profiles at t0-t3 [micro_M]')
     print('Finished pre-processing and saved smoothed profiles.')
 
-    # plotting smoothed and original data as comparison
-    # import matplotlib.pyplot as plt
-    # import sys
-    # plt.plot(xx_exp, cc_exp, '--', label='original')
-    # plt.plot(xx, cc, '-', label='smoothed')
-    # plt.show()
-    # sys.exit()
+    if args.pre:
+        # plotting smoothed and original data as comparison
+        print('Raw data x-Axis ranges from Xmin = %2.f to Xmax = %2.f, '
+              'with discretization deltaX = %2.f' % (np.min(xx_exp),
+                                                     np.max(xx_exp),
+                                                     (xx_exp[1]-xx_exp[0])))
+        print('Assuming temporal discretization of deltaT = 10s we have total'
+              ' data for %2.f minutes' % ((data[0, :].size-2)/6))
+    plt.plot(xx_exp, cc_exp, '--', label='original')
+    plt.plot(xx, cc, '-', label='smoothed')
+    plt.show()
+    sys.exit()
 
     tt = np.array([0, 300, 600, 900])  # t in seconds
     c0 = 4  # concentration of peptide solution in µ
