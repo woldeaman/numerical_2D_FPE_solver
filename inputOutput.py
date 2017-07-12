@@ -55,11 +55,10 @@ def preProcessing(xx, cc, order=3, window=None, bins=100):
 
     # filtering/smoothing of concentration profiles
     if window is None:
-        # standart windows size is half of profile size
-        if (int(profiles[:, 0].size/2) % 2) == 0:
-            window = int(profiles[:, 0].size/2) + 1
-        else:
-            window = int(profiles[:, 0].size/2)
+        # standart windows size is quarter of profile size
+        window = int(profiles[:, 0].size/4)
+        if window % 2 == 0:  # only odd values for winow size work
+            window = window + 1
 
     filtered = np.array([sg.savgol_filter(
         profiles[:, i], window, order, mode='nearest')
