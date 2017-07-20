@@ -15,7 +15,7 @@ import argparse as ap
 # import sys
 
 startTime = time.time()
-
+# TODO: integrate analysis and plotting script into this one
 
 # function for computation of residuals, given to optimization function as
 # argument to be optimized

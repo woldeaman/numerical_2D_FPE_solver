@@ -78,6 +78,45 @@ def preProcessing(xx, cc, order=3, window=None, bins=100):
     return xs, profiles
 
 
+# averaging c-profiles for new mucus data
+def averageCon(xx, cc, xEnd=-1, tEnd=-1, dt=10):
+    '''
+    Computes the average concentration profiles from multiple data sets,
+    where xx[i], cc[i][:, t] are arrays containing data for
+    measurement i at time t. Averaged data is as long as shortest raw data.
+    XEnd - x position [in µm] until which profiles should be analysed,
+    if XEnd = -1 complete profiles will be averaged.
+    tEnd - time point [in s] until which profiles sould be analysed,
+    if tEnd = -1 complete profiles will be averaged.
+    dt - Invervall at which profiles are recorded [standart is dt = 10s]
+    '''
+
+    samples = len(cc)  # number of samples
+    if xEnd == -1:  # setting xEnd to maximal value for XEnd = -1
+        xEnd = max([np.max(xx[i]) for i in range(samples)])
+    if tEnd == -1:  # setting tEnd to maximal value for tEnd = -1
+        tEnd = max([(cc[i][0, :].size)*dt for i in range(samples)])
+
+    # t-vector for each sample
+    tt = [np.arange(cc[i][0, :].size)*dt for i in range(samples)]
+    dx = xx[0][1]  # assuming same bin width in all measurements
+
+    # take minimum index to be able to average over all profiles
+    xInd = np.min([np.argmin(abs(xx[i] - xEnd)) for i in range(samples)])
+    tInd = np.min([np.argmin(abs(tt[i] - tEnd)) for i in range(samples)])
+
+    # averaging profiles
+    ccAver = np.array([[np.average([cc[i][x, t] for i in range(samples)
+                                    if (cc[i][:, 0].size > x and
+                                        cc[i][0, :].size > t)])
+                        for t in range(tInd)]
+                       for x in range(xInd)])
+
+    xxAver = np.arange(xInd)*dx  # x-vector for averaged profile
+
+    return xxAver, ccAver
+
+
 # plotting concentration profiles for different times
 def plotCon(cc, xx=None, live=False):
     '''

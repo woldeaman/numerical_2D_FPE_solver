@@ -50,6 +50,7 @@ def analysis(result, xx=None, cc=None, tt=None, plot=False, per=0.1,
 
     # -------------------------- loading results --------------------------- #
     # gathering data from simulations
+
     # loading error values, factor two, because of cost function definition
     Error = np.array([np.sqrt(2*result[i].cost / (n*N))
                       for i in range(I)])
@@ -60,6 +61,8 @@ def analysis(result, xx=None, cc=None, tt=None, plot=False, per=0.1,
                               for i in range(nbr)]), axis=0)
     # average over D because only D in between bins is of importance
     D = np.array([(D_pre[i] + D_pre[i+1])/2 for i in range(D_pre.size-1)])
+    # TODO: fix this stupid workaround for equal length in D and F
+    D = np.append(D, D[-1])
     F_pre = np.mean(np.array([result[indices[i]].x[N+1:]
                               for i in range(nbr)]), axis=0)
     F = F_pre - F_pre[0]
@@ -69,6 +72,8 @@ def analysis(result, xx=None, cc=None, tt=None, plot=False, per=0.1,
     # average over D because only D in between bins is of importance
     DSTD = np.array([(DSTD_pre[i] + DSTD_pre[i+1])/2
                      for i in range(DSTD_pre.size-1)])
+    # TODO: fix this stupid workaround for equal length in D and F
+    DSTD = np.append(DSTD, DSTD[-1])
     FSTD = np.std(np.array([result[indices[i]].x[N+1:]
                             for i in range(nbr)]), axis=0)
 
@@ -76,11 +81,15 @@ def analysis(result, xx=None, cc=None, tt=None, plot=False, per=0.1,
     D_best_pre = result[indices[0]].x[:N+1]
     D_best = np.array([(D_best_pre[i] + D_best_pre[i+1])/2  # average D
                        for i in range(D_best_pre.size-1)])
+    # TODO: fix this stupid workaround for equal length in D and F
+    D_best = np.append(D_best, D_best[-1])
     F_best_pre = result[indices[0]].x[N+1:]
     F_best = F_best_pre - F_best_pre[0]
 
     # computing WMatrix for open boundary conditions
-    W, W10 = fp.WMatrix(D_best, F_best, deltaX=deltaX, bc='open1side')
+    W, W10 = fp.WMatrix(D_best_pre, F_best_pre, deltaX=deltaX, bc='open1side')
+    # using D_pre here because original D is used for WMatrix computation
+    # but averaged D is physically important
 
     # computing concentration profiles for best D and F
     ccRes = np.array([fp.calcC(cc[:, 0], tt[j], W=W, W10=W10, c0=c0,
@@ -254,13 +263,15 @@ def main():
                                                      (xx_exp[1]-xx_exp[0])))
         print('Assuming temporal discretization of deltaT = 10s we have total'
               ' data for %2.f minutes' % ((data[0, :].size-2)/6))
-    plt.plot(xx_exp, cc_exp, '--', label='original')
-    plt.plot(xx, cc, '-', label='smoothed')
-    plt.show()
-    sys.exit()
+
+        # plotting profiles
+        plt.plot(xx_exp, cc_exp, '--', label='original')
+        plt.plot(xx, cc, '-', label='smoothed')
+        plt.show()
+        sys.exit()
 
     tt = np.array([0, 300, 600, 900])  # t in seconds
-    c0 = 4  # concentration of peptide solution in µ
+    c0 = 15  # concentration of peptide solution in µ
     dim = cc[:, 0].size  # number of discretization bins
     deltaX = abs(xx[0] - xx[1])  # discretization width
     print('Discretization width is %.2f µm.\n Starting optimization.\n'
@@ -294,8 +305,14 @@ def main():
 
     analysis(np.array(results), xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
 
+    # returns number of runs in order to compute average time per run
+    return Runs
+
 
 if __name__ == "__main__":
-    main()
-    print("Finished optimization, execution time was %.2f minutes"
-          % ((time.time() - startTime)/60))
+    runs = main()
+    print("\nFinished optimization!"
+          "\nTotal execution time was %.2f minutes"
+          "\nAverage time per run was %2.f minutes"
+          % (((time.time() - startTime)/60),
+             (time.time() - startTime)/(60*runs)))
