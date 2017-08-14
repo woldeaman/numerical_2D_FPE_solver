@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 # implemented fokker-planck equation in 1D for
 # mucus experiments by AG Ribbeck --> original cervix mucus data
+# # use this for matplotlib on the cluster
+# import matplotlib
+# matplotlib.use('Agg')
 import numpy as np
 import time
 import inputOutput as io
@@ -19,7 +22,7 @@ import sys
 startTime = time.time()
 
 
-def analysis(result, xx=None, cc=None, tt=None, plot=False, per=0.1,
+def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
              savePath=None):
     '''
     Function analyses results from ls-optimization,
@@ -40,12 +43,11 @@ def analysis(result, xx=None, cc=None, tt=None, plot=False, per=0.1,
     if plot:
         M = tt.size  # number of different profiles
 
-    N = int(result[0].x.size/2 - 1)  # number of bins, -1 because c0 - constant
+    N = cc[:, 0].size  # number of bins
     n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
     if xx is None:
         xx = np.arange(N)
     deltaX = abs(xx[0] - xx[1])
-    c0 = 4  # concentration of peptide solution in µM
     # ----------------- setting working parameters --------------------- #
 
     # -------------------------- loading results --------------------------- #
@@ -137,9 +139,10 @@ def analysis(result, xx=None, cc=None, tt=None, plot=False, per=0.1,
     # ------------------------- plotting data ------------------------------- #
     if plot:
         # plotting profiles
-        ps.plotCon(xx, cc, ccRes, tt, save=True, path=savePath)
+        ps.plotCon(xx, cc, ccRes, tt, c0=c0, save=True, path=savePath)
         # plotting averaged D and F
-        ps.plotDF(xx, D, F, D_STD=DSTD, F_STD=FSTD, save=True, path=savePath)
+        ps.plotDF(xx, D, F, D_STD=DSTD, F_STD=FSTD, save=True, path=savePath,
+                  scale='log')
 
 
 # function for computation of residuals, given to optimization function as
@@ -217,83 +220,20 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0):
 
 
 def main():
-    # ---------------- parsing command line inputs ------------------------- #
-    # gathering path to data and setting verbosity
-    parser = ap.ArgumentParser()
-    parser.add_argument('-p', dest='path', type=str,
-                        help='define the path to data for analysis')
-    parser.add_argument('-v', dest='verbosity', type=int, help='set '
-                        'verbosity level ranging from 0 - no output to 2 - '
-                        'full output, -1 - means custom verbose mode')
-    parser.add_argument('-pre', dest='pre', action='store_true',
-                        help='Only look at raw data and pre-processing'
-                        'results. Does not start analysis.')
+    # reading input and setting up analysis
+    (verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
+     bnds, FInit, DInit) = io.startUp('fullDF')
 
-    args = parser.parse_args()
-    if args.verbosity is None:
-        verbosity = 0
-    else:
-        verbosity = args.verbosity
-    # ---------------- parsing command line inputs ------------------------- #
-
-    # -------------- reading and pre-processing profiles ------------------- #
-    # reading profiles and take only samples for 4 different time points
-    try:  # change seperator accordingly
-        data = io.readData(args.path, sep=';')
-    except ValueError:
-        data = io.readData(args.path, sep=',')
-
-    # pre processing of profiles
-    # filtering and setting negative c-values to zero
-    print('\nReading data and starting pre-processing.')
-    xx_exp = data[:, 0]
-    cc_exp = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
-    xx, cc = io.preProcessing(xx_exp, cc_exp, order=5)
-    np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=',',
-               header='Profiles were smoothed using Savitzky-Golay filter'
-               ' \nCloumn 1: x-distance [micro_m]'
-               '\nColumn 2-5: c-profiles at t0-t3 [micro_M]')
-    print('Finished pre-processing and saved smoothed profiles.')
-
-    if args.pre:
-        # plotting smoothed and original data as comparison
-        print('Raw data x-Axis ranges from Xmin = %2.f to Xmax = %2.f, '
-              'with discretization deltaX = %2.f' % (np.min(xx_exp),
-                                                     np.max(xx_exp),
-                                                     (xx_exp[1]-xx_exp[0])))
-        print('Assuming temporal discretization of deltaT = 10s we have total'
-              ' data for %2.f minutes' % ((data[0, :].size-2)/6))
-
-        # plotting profiles
-        plt.plot(xx_exp, cc_exp, '--', label='original')
-        plt.plot(xx, cc, '-', label='smoothed')
-        plt.show()
-        sys.exit()
-
-    tt = np.array([0, 300, 600, 900])  # t in seconds
-    c0 = 15  # concentration of peptide solution in µ
     dim = cc[:, 0].size  # number of discretization bins
-    deltaX = abs(xx[0] - xx[1])  # discretization width
-    print('Discretization width is %.2f µm.\n Starting optimization.\n'
-          % deltaX)
-    # -------------- reading and pre-processing profiles ------------------- #
 
-    # setting reasonable bounds for F and D
-    # and setting number of runs
-    DBound = 1000
-    FBound = 20
-    Runs = 100
-    # parameters is one more than number of bins, because of c0 at boundary
-    # same number for D and F, because F roams freely now
-    bndsDUpper = np.ones(dim+1)*DBound
-    bndsFUpper = np.ones(dim+1)*FBound
-    bndsDLower = np.zeros(dim+1)
-    bndsFLower = np.ones(dim+1)*(-FBound)
-    bnds = (np.concatenate((bndsDLower, bndsFLower)),
-            np.concatenate((bndsDUpper, bndsFUpper)))
-
-    FInit = 0
-    DInit = (np.random.rand(dim+1, Runs)*DBound)
+    # ---------------- option for analysis only --------------------------- #
+    if ana:
+        print('\nDoing analysis only.')
+        res = np.load('result.npy')
+        analysis(np.array(res), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
+        print('\nPlots have been made and data was extraced and saved.')
+        sys.exit()
+    # ---------------- option for analysis only --------------------------- #
 
     results = []
     for i in range(Runs):
@@ -303,7 +243,7 @@ def main():
                                     c0=c0, verb=verbosity))
         np.save('result.npy', np.array(results))
 
-    analysis(np.array(results), xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
+    analysis(np.array(results), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
 
     # returns number of runs in order to compute average time per run
     return Runs
