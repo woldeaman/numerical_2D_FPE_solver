@@ -94,9 +94,6 @@ def startUp(mode):
         plt.show()
         sys.exit()
 
-    if ana:
-        print('\nDoing analysis and plotting only.\n')
-
     dim = cc[:, 0].size  # number of discretization bins
     deltaX = abs(xx[0] - xx[1])  # discretization width
     # -------------- reading and pre-processing profiles ------------------- #
