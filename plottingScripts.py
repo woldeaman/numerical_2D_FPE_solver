@@ -118,8 +118,8 @@ def plotConTrans(xx, cc, ccRes, c0, tt, TransIndex, layerD, save=False,
     if path is None:
         if sys.platform == "darwin":  # folder for linux
             path = '/Users/AmanuelWK/Desktop/'
-    elif sys.platform.startswith("linux"):  # folder for mac
-        path = '/home/amanuelwk/Desktop/'
+        elif sys.platform.startswith("linux"):  # folder for mac
+            path = '/home/amanuelwk/Desktop/'
 
     plt.figure()
     deltaX = abs(xx[1] - xx[0])
