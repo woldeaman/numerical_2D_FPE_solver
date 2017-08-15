@@ -101,7 +101,7 @@ def plotCon(xx, cc, ccRes, tt, c0=4, save=False, path=None):
         l2s.append([l2])
     # plotting two legends, for color and linestyle
     legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=1)
-    plt.legend([l[0] for l in l1s], ["%d min" % (tt[i]/60)
+    plt.legend([l[0] for l in l1s], ["%.2f min" % (tt[i]/60)
                                      for i in range(tt.size)], loc=3)
     plt.gca().add_artist(legend1)
 
@@ -165,7 +165,7 @@ def plotConTrans(xx, cc, ccRes, c0, tt, TransIndex, layerD, save=False,
         l2s.append([l2])
     # plotting two legends, for color and linestyle
     legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=1)
-    plt.legend([l[0] for l in l1s], ["%d min" % (tt[i]/60)
+    plt.legend([l[0] for l in l1s], ["%.2f min" % (tt[i]/60)
                                      for i in range(tt.size)], loc=4)
     plt.gca().add_artist(legend1)
 
