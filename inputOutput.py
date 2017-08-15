@@ -41,11 +41,16 @@ def startUp(mode):
     # ---------------- setting up analysis parameters ----------------------- #
     # reading run parameters from stdin
     # 4µM for Kathy's data and and 15 µM for Tahouras data
-    print('Set concentration of peptide solution:')
+    print('Set concentration of peptide solution (same units as profiles):')
     c0 = int(sys.stdin.readline())
     if mode is 'twoBox':
-        print('Set position of buffer-mucus interface:')
+        print('Set position of buffer-mucus interface '
+              '(same units as profiles):')
         xInter = float(sys.stdin.readline())
+    print('Choose profiles for analysis '
+          '(supply timepoints in seconds, assuming dt = 10s):')
+    tt = np.array([int(nbr) for nbr in sys.stdin.readline().split()])
+    dt = 10  # so far supplied with profiles for every ten seconds
 
     print('Set number of analysis runs:')
     Runs = int(sys.stdin.readline())
@@ -62,11 +67,10 @@ def startUp(mode):
     # filtering and setting negative c-values to zero
     print('\nReading data and starting pre-processing.')
     xx_exp = data[:, 0]
-
-    # TODO: make choosing of c-profiles for analysis also interactive
-    # take profiles for 0, 5, 10 and 15 minutes
-    tt = np.array([0, 300, 600, 900])  # t in seconds
-    cc_exp = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
+    # tt = np.array([0, 300, 600, 900])  # t in seconds
+    # cc_exp = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
+    # now reading profiles based on input for different timepoints
+    cc_exp = np.array([data[:, int(t/dt + 1)] for t in tt]).T
     xx, cc = preProcessing(xx_exp, cc_exp, order=5)
     np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=',',
                header='Profiles were smoothed using Savitzky-Golay filter'
