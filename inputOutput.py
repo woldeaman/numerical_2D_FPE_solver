@@ -85,7 +85,7 @@ def startUp(mode):
               'with discretization deltaX = %2.f' % (np.min(xx_exp),
                                                      np.max(xx_exp),
                                                      (xx_exp[1]-xx_exp[0])))
-        print('\nAssuming temporal discretization of deltaT = 10s we have'
+        print('Assuming temporal discretization of deltaT = 10s we have'
               ' data for %2.f minutes' % ((data[0, :].size-2)/6))
 
         # plotting profiles
@@ -93,6 +93,9 @@ def startUp(mode):
         plt.plot(xx, cc, '-', label='smoothed')
         plt.show()
         sys.exit()
+
+    if ana:
+        print('\nDoing analysis and plotting only.\n')
 
     dim = cc[:, 0].size  # number of discretization bins
     deltaX = abs(xx[0] - xx[1])  # discretization width
