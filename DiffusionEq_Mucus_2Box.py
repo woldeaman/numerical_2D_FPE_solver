@@ -295,6 +295,6 @@ if __name__ == "__main__":
     runs, dist = main()
     print("\nFinished optimization!"
           "\nTotal execution time was %.2f minutes"
-          "\nAverage time per run was %2.f minutes"
+          "\nAverage time per run was %.2f minutes"
           % (((time.time() - startTime)/60),
              (time.time() - startTime)/(60*runs*dist)))
