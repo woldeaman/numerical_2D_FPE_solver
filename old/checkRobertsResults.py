@@ -1,6 +1,6 @@
 import numpy as np
 import inputOutput as io
-import DiffusionEq_Skin_RobertsDiscretization as sk
+import DiffusionEq_Skin as sk
 import FPModel as fp
 import sys
 
@@ -40,12 +40,20 @@ deltaX = np.array([X1, X2, X3])
 # read roberts results
 D = np.loadtxt(path+'RobertsResults/D.txt')
 F = np.loadtxt(path+'RobertsResults/F.txt')
+# D = np.loadtxt('/Users/AmanuelWK/Desktop/D_avg.txt')
+# F = np.loadtxt('/Users/AmanuelWK/Desktop/F_avg.txt')
 # read my results
 # dat = np.loadtxt('/Users/AmanuelWK/Desktop/Cluster/jobs/fokkerPlanckModel/'
 #                  'skin/0_RobertsDiscretization/results/DF.txt',
 #                  delimiter=',')
 # D = dat[:, 0]
 # F = dat[:, 2]
+
+# for i in range(D.size):
+#     if D[i] < 0:
+#         D[i] = 0
+
 df = np.concatenate((D[6:88], F[6:88]))
+
 
 res = sk.resFun(df=df, cc=cc, tt=tt, deltaX=deltaX, debug=True, verb=True)
