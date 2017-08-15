@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # implemented fokker-planck equation in 1D for
-# mucus experiments by AG Ribbeck --> original cervix mucus data
 # # use this for matplotlib on the cluster
 # import matplotlib
 # matplotlib.use('Agg')
@@ -13,9 +12,7 @@ import numpy.linalg as la
 import scipy.special as sp
 import functools as ft
 import scipy.optimize as op
-import argparse as ap
 import plottingScripts as ps
-import matplotlib.pyplot as plt
 import os
 import sys
 

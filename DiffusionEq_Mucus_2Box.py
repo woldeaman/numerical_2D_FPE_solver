@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # implemented fokker-planck equation in 1D for
-# mucus experiments by AG Ribbeck --> original cervix mucus data
 # # use this for matplotlib on the cluster
 # import matplotlib
 # matplotlib.use('Agg')
@@ -281,7 +280,7 @@ def main():
                                      transIdx=TransIndex,
                                      bnds=bnds, cc=cc, tt=tt, deltaX=deltaX,
                                      c0=c0, verb=verbosity))
-            np.save('temp_distance.npy', np.array(temp))
+            np.save('temp.npy', np.array(temp))
         results.append(np.array(temp))
         np.save('result.npy', np.array(results))
 
