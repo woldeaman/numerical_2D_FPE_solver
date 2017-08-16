@@ -43,10 +43,10 @@ def startUp(mode):
     # 4µM for Kathy's data and and 15 µM for Tahouras data
     print('Set concentration of peptide solution (same units as profiles):')
     c0 = int(sys.stdin.readline())
-    if mode is 'twoBox':
-        print('Set position of buffer-mucus interface '
-              '(same units as profiles):')
-        xInter = float(sys.stdin.readline())
+    # if mode is 'twoBox':
+    #     print('Set position of buffer-mucus interface '
+    #           '(same units as profiles):')
+    #     xInter = float(sys.stdin.readline())
     print('Choose profiles for analysis '
           '(supply timepoints in seconds, assuming dt = 10s):')
     tt = np.array([int(nbr) for nbr in sys.stdin.readline().split()])
@@ -104,14 +104,14 @@ def startUp(mode):
     FBound = 20
     # parameters is one more than number of bins, because of c0 at boundary
     # same number for D and F, because F roams freely now
-    if mode is 'twoBox':
-        dim = 1  # for two box model only two parameters
-        # interface bin position
-        TransIndex = np.argwhere(abs(xx - xInter) ==
-                                 np.min(abs(xx - xInter)))[0, 0].astype(int)
-        # for the case of d = 2 we have instant jump,
-        # because bin1 = D1, bin2 = D2
-        distances = np.arange(2, (2*TransIndex)+1, step=int(TransIndex/10))
+    # if mode is 'twoBox':
+    #     dim = 1  # for two box model only two parameters
+    #     # interface bin position
+    #     TransIndex = np.argwhere(abs(xx - xInter) ==
+    #                              np.min(abs(xx - xInter)))[0, 0].astype(int)
+    #     # for the case of d = 2 we have instant jump,
+    #     # because bin1 = D1, bin2 = D2
+    #     distances = np.arange(2, (2*TransIndex)+1, step=int(TransIndex/10))
 
     bndsDUpper = np.ones(dim+1)*DBound
     bndsFUpper = np.ones(dim+1)*FBound
@@ -125,11 +125,11 @@ def startUp(mode):
     print('\nStarting optimization.\nDiscretization width is %.2f µm.'
           % deltaX)
 
-    if mode is 'twoBox':
-        return (verbosity, Runs, ana, deltaX, c0, xInter, xx, cc, tt, bnds,
-                FInit, DInit, distances, TransIndex)
-    else:
-        return verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit, DInit
+    # if mode is 'twoBox':
+    #     return (verbosity, Runs, ana, deltaX, c0, xInter, xx, cc, tt, bnds,
+    #             FInit, DInit, distances, TransIndex)
+    # else:
+    return verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit, DInit
 
 
 # reading data
@@ -182,7 +182,7 @@ def preProcessing(xx, cc, order=3, window=None, bins=100):
     # filtering/smoothing of concentration profiles
     if window is None:
         # standart windows size is quarter of profile size
-        window = int(profiles[:, 0].size/4)
+        window = int(profiles[:, 0].size/2)
         if window % 2 == 0:  # only odd values for winow size work
             window = window + 1
 

@@ -4,8 +4,56 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import scipy.linalg as al
+import scipy.special as sp
 import numpy.linalg as la
 import sys
+
+
+# definition of rate matrix
+# with reflective BCs or one sided open BCs
+# in case of open BCs df contains d and f for leftmost bin outside domain
+def WMatrixGrima(d, f, deltaX=1, bc='reflective'):
+    '''
+    Calculates entries of rate matrix W with rank F.size
+    definition in R. Grima, PRE, 2004
+    '''
+    if d.size != f.size:
+        print('Something\'s wrong, not same lenght of F and D')
+        sys.exit()
+    else:
+        n = d.size  # number of bins
+
+    # transition rates only to nearest neighbours
+    W = np.array([[(np.sqrt(d[i]*d[j])/(deltaX**2))*np.exp(-(f[i]-f[j]))
+                   if (abs(j-i) == 1) else 0
+                   for j in range(n)] for i in range(n)])
+    # then add rates to leave on main diagonal from original matrix
+    for i in range(n):
+        W[i, i] = -np.sum([W[j, i] for j in range(n)])
+
+    # boundary conditions differ only in the part of the matrix we use for
+    # further analysis
+    if bc == 'reflective':
+        return W
+    elif bc == 'open1side':
+        # returning truncated matrix as well as W[1, 0]
+        # which is used for further calculations
+        return W[1:, 1:], W[1, 0]
+    else:
+        print('Error: Invalid boundary conditions!')
+        sys.exit()
+
+
+def sigmoidalDF(df, t, d, x):
+    '''
+    Function computes sigmoidal D or F profile based on errorfunction.
+    df = [df1, df2] - list containing diffusivity or free energy values
+    t - location of interface between segment 1 and 2
+    d - length of sigmoidal transition regime between segment 1 and 2
+    x - position at wich D or F profile is computed
+    '''
+    DF = 0.5*((df[0]+df[1]) + (df[1]-df[0])*sp.erf((x-t)/(np.sqrt(2)*d)))
+    return DF
 
 
 def WMatrixVar(d, f, N, deltaXX, con=False):
