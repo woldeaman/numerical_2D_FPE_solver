@@ -155,20 +155,24 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     worksheet.write('A1', 'D_sol [µm^2/s]', bold)
     worksheet.write('B1', 'D_muc [µm^2/s]', bold)
     worksheet.write('C1', 'F_muc [kT]', bold)
-    worksheet.write('D1', 'layer t_D, t_F [µm]', bold)
-    worksheet.write('E1', 'layer d_D, d_F [µm]', bold)
-    worksheet.write('F1', 'min E [+/- µM]', bold)
+    worksheet.write('D1', 'layer t_D [µm]', bold)
+    worksheet.write('E1', 'layer t_F [µm]', bold)
+    worksheet.write('F1', 'layer d_D [µm]', bold)
+    worksheet.write('G1', 'layer d_F [µm]', bold)
+    worksheet.write('H1', 'min E [+/- µM]', bold)
     # writing entries
     worksheet.write('A2', '%.2f +/- %.2f' % (D_best[0], DSTD[0]))
     worksheet.write('B2', '%.2f +/- %.2f' % (D_best[-1], DSTD[-1]))
     worksheet.write('C2', '%.2f +/- %.2f' % (F_best[-1], FSTD[-1]))
-    worksheet.write('D2', '%.2f +/- %.2f, %.2f +/- %.2f' %
-                    (sigParamsDF_best[0], sigParamsDF_STD[0]),
-                    (sigParamsDF_best[2], sigParamsDF_STD[2]))
-    worksheet.write('E2', '%.2f +/- %.2f, %.2f +/- %.2f' %
-                    (sigParamsDF_best[1], sigParamsDF_STD[1]),
-                    (sigParamsDF_best[3], sigParamsDF_STD[3]))
-    worksheet.write('F2', '%.2f' % Error[indices[0]])
+    worksheet.write('D2', '%.2f +/- %.2f' % (sigParamsDF_best[0],
+                                             sigParamsDF_STD[0]))
+    worksheet.write('E2', '%.2f +/- %.2f' % (sigParamsDF_best[2],
+                                             sigParamsDF_STD[2]))
+    worksheet.write('F2', '%.2f +/- %.2f' % (sigParamsDF_best[1],
+                                             sigParamsDF_STD[1]))
+    worksheet.write('G2', '%.2f +/- %.2f' % (sigParamsDF_best[3],
+                                             sigParamsDF_STD[3]))
+    worksheet.write('H2', '%.2f' % Error[indices[0]])
 
     # adjusting cell widths
     worksheet.set_column(0, 5, len('layer d_D, d_F [µm]'))
@@ -303,6 +307,7 @@ def main():
     DInit = (np.random.rand(2, Runs)*DBound)
     # order is [t_D, d_D, t_F, d_F]
     tdInit = np.array([np.max(xx)/4, deltaX]*2)
+
     # TODO: try normalized parameters --> p_i e [0, 1]
 
     results = []
