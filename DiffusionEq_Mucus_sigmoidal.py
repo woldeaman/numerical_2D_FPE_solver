@@ -246,9 +246,9 @@ def resFun(df, cc, xx, tt, deltaX=1, c0=None, verb=False):
         E = np.sqrt(np.sum(RRn**2)/(N*n))  # normalized version
         print(E)
 
-    print('Current iteration:\n')
-    print('D: \n', d, '\nF: \n', f, '\nt_D, d_D: \n', [t_D, d_D],
-          '\nt_F, d_F: \n', [t_F, d_F], '\n', )
+    # print('Current iteration:\n')
+    # print('D: \n', d, '\nF: \n', f, '\nt_D, d_D: \n', [t_D, d_D],
+    #       '\nt_F, d_F: \n', [t_F, d_F], '\n', )
     return RRn
 
 
