@@ -22,22 +22,19 @@ def plotMinError(distance, Error, ESTD, save=False,
     else:
         plt.show()
 
-# TODO: Add function to plot relative difference in min Error
-# over transition layer width
-
 
 # plotting format for D and F in the same figure
 def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False,
            path=None, style='.', scale='linear'):
+    """
+    Plots D and F profiles
+    """
     if path is None:
         if sys.platform == "darwin":  # folder for linux
             path = '/Users/AmanuelWK/Desktop/'
         elif sys.platform.startswith("linux"):  # folder for mac
             path = '/home/amanuelwk/Desktop/'
 
-    deltaX = xx[1] - xx[0]
-    # to take into account extra bin change xx vector
-    xx = np.concatenate((-deltaX*np.ones(1), xx))
     plt.figure(2)
     plt.gca().set_xlim(left=xx[0])
     plt.gca().set_xlim(right=xx[-1])
@@ -69,7 +66,7 @@ def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False,
 
 
 # for plotting concentration profiles
-def plotCon(xx, cc, ccRes, tt, c0=4, save=False, path=None):
+def plotCon(xx, cc, ccRes, tt, save=False, path=None):
     '''
     Plots analyzed concentration profiles.
     '''
@@ -81,9 +78,6 @@ def plotCon(xx, cc, ccRes, tt, c0=4, save=False, path=None):
 
     M = cc[0, :].size  # number of profiles
 
-    xxRes = np.concatenate(((xx[0]-xx[1])*np.ones(1), xx))
-    ccRes = np.concatenate((np.ones((1, 4))*c0, ccRes))
-
     # plotting concentration profiles
     l1s = []  # for sperate legends
     l2s = []
@@ -91,13 +85,13 @@ def plotCon(xx, cc, ccRes, tt, c0=4, save=False, path=None):
 
     plt.figure(0)
     for j in range(M):
-        plt.gca().set_xlim(left=xxRes[0])
-        plt.gca().set_xlim(right=xxRes[-1])
+        plt.gca().set_xlim(left=xx[0])
+        plt.gca().set_xlim(right=xx[-1])
         plt.xlabel('Distance [µm]')
         plt.ylabel('Concentration [µM]')
         l1, = plt.plot(xx, cc[:, j], '--', color=colors[j])
         l1s.append([l1])
-        l2, = plt.plot(xxRes, ccRes[:, j], '-', color=colors[j])
+        l2, = plt.plot(xx, ccRes[:, j], '-', color=colors[j])
         l2s.append([l2])
     # plotting two legends, for color and linestyle
     legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=1)
