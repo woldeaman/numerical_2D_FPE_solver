@@ -8,7 +8,7 @@ import argparse as ap
 import sys
 
 
-def startUp(mode):
+def startUp():
     '''
     This function reads input values from terminal and sets up everything
     to run the ls-optimization for the full DF profile analysis as well as
@@ -17,7 +17,13 @@ def startUp(mode):
 
     # ---------------- parsing command line inputs ------------------------- #
     # gathering path to data and setting verbosity
-    parser = ap.ArgumentParser()
+    parser = ap.ArgumentParser(description=(
+        """
+        This script determines free energy and diffusivity profiles, based
+        on supplied experimental concentration profiles. First column is always
+        assumed to be z-distance vector! So far, only analysis with dx = const.
+        Following 'i' columns are profiles at times dt*i.
+        """), formatter_class=ap.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-p', dest='path', type=str,
                         help='define the path to data for analysis')
     parser.add_argument('-v', dest='verbosity', type=int, help='set '
@@ -40,43 +46,72 @@ def startUp(mode):
 
     # ---------------- setting up analysis parameters ----------------------- #
     # reading run parameters from stdin
-    # 4µM for Kathy's data and and 15 µM for Tahouras data
-    print('Set concentration of peptide solution (same units as profiles):')
-    c0 = int(sys.stdin.readline())
-    # if mode is 'twoBox':
-    #     print('Set position of buffer-mucus interface '
-    #           '(same units as profiles):')
-    #     xInter = float(sys.stdin.readline())
-    print('Choose profiles for analysis '
-          '(supply timepoints in seconds, assuming dt = 10s):')
+    # select apropriate boundary conditions
+    print('Analysis with fixed concentration at left boundary? [yes/no]')
+    answer = sys.stdin.readline()
+    if answer is 'yes' or answer is 'Yes' or answer is 'y' or answer is 'Y':
+        bc_mode = 'open1side'  # analysis with fixed concentration
+    if answer is 'no' or answer is 'No' or answer is 'n' or answer is 'N':
+        bc_mode = 'reflective'  # analysis with reflecting boundary conditions
+    else:
+        print('Error: input could not be read. Supply yes or no answer!')
+        sys.exit()
+
+    # reading fixed concentration if chosen bc
+    if bc_mode is 'open1side':
+        # 4µM for Kathy's data and and 15 µM for Tahouras data
+        print('Set concentration of peptide solution (same units as profiles):')
+        c0 = int(sys.stdin.readline())
+    else:
+        c0 = None
+
+    print('Set temporal resolution, supply dt in seconds:')
+    dt = int(sys.stdin.readline())
+
+    print('Choose profiles for analysis (supply timepoints in seconds):')
     tt = np.array([int(nbr) for nbr in sys.stdin.readline().split()])
-    dt = 10  # so far supplied with profiles for every ten seconds
 
     print('Set number of analysis runs:')
-    Runs = int(sys.stdin.readline())
+    Runs = int(sys.stdin.readline())  # how many start D, Fs should be tried
+
+    print('Should profiles be pre-processed? If yes, profiles will be '
+          'filtered using Savitzky-Golay. [yes/no]:')
+    answer = sys.stdin.readline()
+    if answer is 'yes' or answer is 'Yes' or answer is 'y' or answer is 'Y':
+        preProcessing = True  # filter profiles
+    if answer is 'no' or answer is 'No' or answer is 'n' or answer is 'N':
+        preProcessing = False  # do not filter profiles
+    else:
+        print('Error: input could not be read. Supply yes or no answer!')
+        sys.exit()
     # ---------------- setting up analysis parameters ----------------------- #
 
     # -------------- reading and pre-processing profiles ------------------- #
-    # reading profiles and take only samples for 4 different time points
+    # reading profiles
+    print('\nReading profiles...')
     try:  # change seperator accordingly
         data = readData(args.path, sep=';')
     except ValueError:
         data = readData(args.path, sep=',')
-
-    # pre processing of profiles
-    # filtering and setting negative c-values to zero
-    print('\nReading data and starting pre-processing.')
-    xx_exp = data[:, 0]
-    # tt = np.array([0, 300, 600, 900])  # t in seconds
-    # cc_exp = np.array([data[:, 1], data[:, 31], data[:, 61], data[:, 91]]).T
+    except ValueError:
+        data = readData(args.path)
+    xx_exp = data[:, 0]  # first column assumed to be distance vector
     # now reading profiles based on input for different timepoints
     cc_exp = np.array([data[:, int(t/dt + 1)] for t in tt]).T
-    xx, cc = preProcessing(xx_exp, cc_exp, order=5)
-    np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=',',
-               header='Profiles were smoothed using Savitzky-Golay filter'
-               ' \nCloumn 1: x-distance [micro_m]'
-               '\nColumn 2-5: c-profiles at t0-t3 [micro_M]')
-    print('Finished pre-processing and saved smoothed profiles.')
+
+    if preProcessing:
+        # pre processing of profiles
+        # filtering and setting negative c-values to zero
+        print('\nDoing pre-processing...')
+        xx, cc = preProcessing(xx_exp, cc_exp, order=5)
+        np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=',',
+                   header='Profiles were smoothed using Savitzky-Golay filter'
+                   ' \nCloumn 1: x-distance [micro meters]'
+                   '\nColumn 2-5: c-profiles at t0-t3')
+        print('Finished pre-processing and saved smoothed profiles.')
+    else:
+        # otherwise take profiles as they are
+        xx, cc = xx_exp, cc_exp
 
     if args.pre:
         # plotting smoothed and original data as comparison
@@ -85,8 +120,8 @@ def startUp(mode):
               'with discretization deltaX = %2.f' % (np.min(xx_exp),
                                                      np.max(xx_exp),
                                                      (xx_exp[1]-xx_exp[0])))
-        print('Assuming temporal discretization of deltaT = 10s we have'
-              ' data for %2.f minutes' % ((data[0, :].size-2)/6))
+        print('Assuming temporal discretization of deltaT = %is we have'
+              ' data for %2.f minutes' % ((dt, (data[0, :].size-2)*dt/60)))
 
         # plotting profiles
         plt.plot(xx_exp, cc_exp, '--', label='original')
@@ -94,42 +129,31 @@ def startUp(mode):
         plt.show()
         sys.exit()
 
-    dim = cc[:, 0].size  # number of discretization bins
-    deltaX = abs(xx[0] - xx[1])  # discretization width
+    deltaX = abs(xx[0] - xx[1])  # discretization width, assuming constant dx
+    if bc_mode is 'reflective':
+        dim = cc[:, 0].size  # number of discretization bins
+    else:
+        # for fixed c0 boundary condition
+        # parameters is one more than number of bins, because of c0 at boundary
+        dim = cc[:, 0].size + 1
     # -------------- reading and pre-processing profiles ------------------- #
 
     # setting reasonable bounds for F and D
     # and setting number of runs
     DBound = 1000
     FBound = 20
-    # parameters is one more than number of bins, because of c0 at boundary
-    # same number for D and F, because F roams freely now
-    # if mode is 'twoBox':
-    #     dim = 1  # for two box model only two parameters
-    #     # interface bin position
-    #     TransIndex = np.argwhere(abs(xx - xInter) ==
-    #                              np.min(abs(xx - xInter)))[0, 0].astype(int)
-    #     # for the case of d = 2 we have instant jump,
-    #     # because bin1 = D1, bin2 = D2
-    #     distances = np.arange(2, (2*TransIndex)+1, step=int(TransIndex/10))
-
-    bndsDUpper = np.ones(dim+1)*DBound
-    bndsFUpper = np.ones(dim+1)*FBound
-    bndsDLower = np.zeros(dim+1)
-    bndsFLower = np.ones(dim+1)*(-FBound)
+    bndsDUpper = np.ones(dim)*DBound
+    bndsFUpper = np.ones(dim)*FBound
+    bndsDLower = np.zeros(dim)
+    bndsFLower = np.ones(dim)*(-FBound)
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
     FInit = 0
-    DInit = (np.random.rand(dim+1, Runs)*DBound)
+    DInit = (np.random.rand(dim, Runs)*DBound)
 
-    print('\nStarting optimization.\nDiscretization width is %.2f µm.'
-          % deltaX)
-
-    # if mode is 'twoBox':
-    #     return (verbosity, Runs, ana, deltaX, c0, xInter, xx, cc, tt, bnds,
-    #             FInit, DInit, distances, TransIndex)
-    # else:
-    return verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit, DInit
+    print('\nStarting optimization...\n')
+    return (bc_mode, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit,
+            DInit)
 
 
 # reading data
@@ -181,7 +205,7 @@ def preProcessing(xx, cc, order=3, window=None, bins=100):
 
     # filtering/smoothing of concentration profiles
     if window is None:
-        # standart windows size is quarter of profile size
+        # standart windows size is half of profile size
         window = int(profiles[:, 0].size/2)
         if window % 2 == 0:  # only odd values for winow size work
             window = window + 1

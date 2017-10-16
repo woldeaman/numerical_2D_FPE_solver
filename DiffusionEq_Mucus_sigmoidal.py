@@ -70,7 +70,7 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     F_mean = np.array([fp.sigmoidalDF(F_pre, sigParamsDF_mean[2],
                                       sigParamsDF_mean[3], x) for x in xx_ext])
 
-    # gathering standart deviation for top 1% of runs
+    # gathering standart deviation for top 10% of runs
     # computed from gauß errorpropagation for errors of D1, D2 or F1, F2
     # contribution of t_D, d_D, t_F and d_F neglected for now
     DSTD_pre = np.std(np.array([result[indices[i]].x[:2]
@@ -155,15 +155,15 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     worksheet.write('A1', 'D_sol [µm^2/s]', bold)
     worksheet.write('B1', 'D_muc [µm^2/s]', bold)
     worksheet.write('C1', 'F_muc [kT]', bold)
-    worksheet.write('D1', 'layer t_D [µm]', bold)
-    worksheet.write('E1', 'layer t_F [µm]', bold)
-    worksheet.write('F1', 'layer d_D [µm]', bold)
-    worksheet.write('G1', 'layer d_F [µm]', bold)
+    worksheet.write('D1', 't_D [µm]', bold)
+    worksheet.write('E1', 't_F [µm]', bold)
+    worksheet.write('F1', 'd_D [µm]', bold)
+    worksheet.write('G1', 'd_F [µm]', bold)
     worksheet.write('H1', 'min E [+/- µM]', bold)
     # writing entries
-    worksheet.write('A2', '%.2f +/- %.2f' % (D_best[0], DSTD[0]))
-    worksheet.write('B2', '%.2f +/- %.2f' % (D_best[-1], DSTD[-1]))
-    worksheet.write('C2', '%.2f +/- %.2f' % (F_best[-1], FSTD[-1]))
+    worksheet.write('A2', '%.2f +/- %.2f' % (D_best_pre[0], DSTD_pre[0]))
+    worksheet.write('B2', '%.2f +/- %.2f' % (D_best_pre[-1], DSTD_pre[-1]))
+    worksheet.write('C2', '%.2f +/- %.2f' % (F_best_pre[-1], FSTD_pre[-1]))
     worksheet.write('D2', '%.2f +/- %.2f' % (sigParamsDF_best[0],
                                              sigParamsDF_STD[0]))
     worksheet.write('E2', '%.2f +/- %.2f' % (sigParamsDF_best[2],
@@ -175,16 +175,16 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     worksheet.write('H2', '%.2f' % Error[indices[0]])
 
     # adjusting cell widths
-    worksheet.set_column(0, 5, len('layer d_D, d_F [µm]'))
+    worksheet.set_column(0, 5, len('min E [+/- µM]'))
     workbook.close()
     # --------------------------- saving data ------------------------------- #
 
     # ------------------------- plotting data ------------------------------- #
     if plot:
         # plotting profiles
-        ps.plotCon(xx, cc, ccRes, tt, c0=c0, save=True, path=savePath)
+        ps.plotCon(xx_ext, cc_ext, ccRes, tt, c0=c0, save=True, path=savePath)
         # plotting averaged D and F
-        ps.plotDF(xx, D_mean, F_mean, style='-.', D_STD=DSTD, F_STD=FSTD,
+        ps.plotDF(xx_ext, D_mean, F_mean, style='-.', D_STD=DSTD, F_STD=FSTD,
                   save=True, path=savePath, scale='linear')
 
 
@@ -276,13 +276,14 @@ def optimization(DRange, FRange, tdRange, bnds, cc, xx, tt, deltaX=1, c0=None,
 
 def main():
     # reading input and setting up analysis
-    (verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
-     bnds, FInit, DInit) = io.startUp('fullDF')
+    (bc_mode, verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
+     bnds, FInit, DInit) = io.startUp()
 
     # ---------------- option for analysis only --------------------------- #
     if ana:
         print('\nDoing analysis only.')
         res = np.load('result.npy')
+        print('Overall %i runs have been performed.' % res.size)
         analysis(np.array(res), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
         print('\nPlots have been made and data was extraced and saved.')
         sys.exit()
@@ -290,7 +291,7 @@ def main():
 
     # setting reasonable bounds for F and D
     DBound = 1000
-    FBound = 20
+    FBound = 10
 
     bndsDUpper = np.ones(2)*DBound
     bndsFUpper = np.ones(2)*FBound
@@ -307,8 +308,6 @@ def main():
     DInit = (np.random.rand(2, Runs)*DBound)
     # order is [t_D, d_D, t_F, d_F]
     tdInit = np.array([np.max(xx)/4, deltaX]*2)
-
-    # TODO: try normalized parameters --> p_i e [0, 1]
 
     results = []
     for i in range(Runs):

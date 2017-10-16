@@ -101,7 +101,7 @@ def Laplace_full(s, x):
     # values for testcase
     xB = 0.05
     xE = 0.1
-    D_Prime = 1E-5
+    D_Prime = 1E-5  # in mm^2/h
     D = D_Prime
     F = 0
 

@@ -19,8 +19,8 @@ import sys
 startTime = time.time()
 
 
-def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
-             savePath=None):
+def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
+             bc='reflective', savePath=None):
     '''
     Function analyses results from ls-optimization,
     if given comparison plots of results and original concentration profiles
@@ -41,6 +41,10 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
         M = tt.size  # number of different profiles
 
     N = cc[:, 0].size  # number of bins
+    if bc is 'open1side':
+        dim = N + 1
+    else:  # taking care of differently long c-vectors
+        dim = N
     n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
     if xx is None:
         xx = np.arange(N)
@@ -56,49 +60,54 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     indices = np.argsort(Error)  # for sorting according to error
 
     # gathering mean of F and D for best 1% of runs
-    D_pre = np.mean(np.array([result[indices[i]].x[:N+1]
+    D_pre = np.mean(np.array([result[indices[i]].x[:dim]
                               for i in range(nbr)]), axis=0)
     # average over D because only D in between bins is of importance
     D = np.array([(D_pre[i] + D_pre[i+1])/2 for i in range(D_pre.size-1)])
-    # TODO: fix this stupid workaround for equal length in D and F
-    D = np.append(D, D[-1])
-    F_pre = np.mean(np.array([result[indices[i]].x[N+1:]
+    D = np.append(D, D[-1])  # stupid workaround for equal length in D and F
+    F_pre = np.mean(np.array([result[indices[i]].x[dim:]
                               for i in range(nbr)]), axis=0)
     F = F_pre - F_pre[0]
     # gathering standart deviation for top 1% of runs
-    DSTD_pre = np.std(np.array([result[indices[i]].x[:N+1]
+    DSTD_pre = np.std(np.array([result[indices[i]].x[:dim]
                                 for i in range(nbr)]), axis=0)
     # average over D because only D in between bins is of importance
     DSTD = np.array([(DSTD_pre[i] + DSTD_pre[i+1])/2
                      for i in range(DSTD_pre.size-1)])
-    # TODO: fix this stupid workaround for equal length in D and F
-    DSTD = np.append(DSTD, DSTD[-1])
-    FSTD = np.std(np.array([result[indices[i]].x[N+1:]
+    DSTD = np.append(DSTD, DSTD[-1])  # fixing same length in D and F
+    FSTD = np.std(np.array([result[indices[i]].x[dim:]
                             for i in range(nbr)]), axis=0)
 
     # gathering best D and F for computation of profiles
-    D_best_pre = result[indices[0]].x[:N+1]
+    D_best_pre = result[indices[0]].x[:dim]
     D_best = np.array([(D_best_pre[i] + D_best_pre[i+1])/2  # average D
                        for i in range(D_best_pre.size-1)])
-    # TODO: fix this stupid workaround for equal length in D and F
     D_best = np.append(D_best, D_best[-1])
-    F_best_pre = result[indices[0]].x[N+1:]
+    F_best_pre = result[indices[0]].x[dim:]
     F_best = F_best_pre - F_best_pre[0]
 
-    # computing WMatrix for open boundary conditions
-    W, W10 = fp.WMatrix(D_best_pre, F_best_pre, deltaX=deltaX, bc='open1side')
+    # computing WMatrix for apropriate boundary conditions
     # using D_pre here because original D is used for WMatrix computation
     # but averaged D is physically important
+    if bc is 'open1side':
+        W, W10 = fp.WMatrix(D_best_pre, F_best_pre, deltaX=deltaX, bc=bc)
+    else:
+        W = fp.WMatrix(D_best_pre, F_best_pre, deltaX=deltaX, bc=bc)
+        W10 = None
 
     # computing concentration profiles for best D and F
     ccRes = np.array([fp.calcC(cc[:, 0], tt[j], W=W, W10=W10, c0=c0,
-                               bc='open1side') for j in range(tt.size)]).T
+                               bc=bc) for j in range(tt.size)]).T
     # -------------------------- loading results --------------------------- #
 
     # --------------------------- saving data ------------------------------- #
-    # extended xx and cc vector for boundary condition
-    xx_ext = np.concatenate((-deltaX*np.ones(1), xx))
-    ccRes_ext = np.concatenate((np.ones((1, 4))*c0, ccRes))
+    if bc is 'open1side':
+        # extended xx and cc vector for open boundary condition
+        xx_ext = np.concatenate((-deltaX*np.ones(1), xx))
+        ccRes_ext = np.concatenate((np.ones((1, 4))*c0, ccRes))
+    else:
+        xx_ext = xx
+        ccRes_ext = ccRes
 
     # saving analyzed data for best results for plotting
     np.savetxt(savePath+'concentrationRes.txt', np.c_[xx_ext, ccRes_ext],
@@ -136,15 +145,15 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     # ------------------------- plotting data ------------------------------- #
     if plot:
         # plotting profiles
-        ps.plotCon(xx, cc, ccRes, tt, c0=c0, save=True, path=savePath)
+        ps.plotCon(xx_ext, cc, ccRes_ext, tt, c0=c0, save=True, path=savePath)
         # plotting averaged D and F
-        ps.plotDF(xx, D, F, D_STD=DSTD, F_STD=FSTD, save=True, path=savePath,
+        ps.plotDF(xx_ext, D, F, D_STD=DSTD, F_STD=FSTD, save=True, path=savePath,
                   scale='log')
 
 
 # function for computation of residuals, given to optimization function as
 # argument to be optimized
-def resFun(df, cc, tt, deltaX=1, c0=None, verb=False):
+def resFun(df, cc, tt, deltaX=1, c0=None, verb=False, bc='reflective'):
     '''
     This function computes residuals from given D and F and Concentration
     Profiles. Additional parameters include: discretization width: deltaX,
@@ -158,7 +167,11 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False):
     d = df[:(N+1)]
     f = df[(N+1):]  # letting F completely free
     # calculating W and T matrix and extra variables for open BCs
-    W, W10 = fp.WMatrix(d, f, deltaX, bc='open1side')
+    if bc is 'open1side':
+        W, W10 = fp.WMatrix(d, f, deltaX, bc=bc)
+    else:
+        W = fp.WMatrix(d, f, deltaX, bc=bc)
+
     # catching singular matrix exception
     try:
         Q = la.inv(W)  # inverse of W
@@ -168,11 +181,14 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False):
         print('WMatrix: \n', W)
         Q = al.inv(W)  # trying different inversion method
 
-    b = np.append(c0*W10, np.zeros(N-1))  # extra vector for open BCs
-    Qb = np.dot(Q, b)  # product is calculated
+    if bc is 'open1side':
+        b = np.append(c0*W10, np.zeros(N-1))  # extra vector for open BCs
+        Qb = np.dot(Q, b)  # product is calculated
+    else:
+        Qb = None  # empty Q*b for reflective boundary conditions
     T = al.expm(W)  # storing exponential matrix
 
-    # computing residual vector for mucus model
+    # computing residual vector
     n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
     RR = np.zeros((n, N))
 
@@ -181,7 +197,7 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False):
         for j in range(M):
             if j > i:
                 RR[k, :] = cc[:, j] - fp.calcC(cc[:, i], (tt[j] - tt[i]),
-                                               T=T, Qb=Qb, bc='open1side')
+                                               T=T, Qb=Qb, bc=bc)
                 k += 1
 
     # calculating vector of residuals
@@ -196,7 +212,11 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False):
 
 
 # extra function for optimization process, written for easy parallelization
-def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0):
+def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0,
+                 bc='reflective'):
+    """
+    Helper function for non-linear LS optimization to profiles.
+    """
 
     if verb == -1:
         funcVerb = True
@@ -206,7 +226,7 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0):
         scpVerb = verb
 
     optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, c0=c0,
-                          verb=funcVerb)
+                          verb=funcVerb, bc=bc)
 
     initVal = np.concatenate((DRange, FRange))
     # running freely with standart termination conditions
@@ -218,8 +238,8 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0):
 
 def main():
     # reading input and setting up analysis
-    (verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
-     bnds, FInit, DInit) = io.startUp('fullDF')
+    (bc_mode, verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
+     bnds, FInit, DInit) = io.startUp()
 
     dim = cc[:, 0].size  # number of discretization bins
 
@@ -227,7 +247,9 @@ def main():
     if ana:
         print('\nDoing analysis only.')
         res = np.load('result.npy')
-        analysis(np.array(res), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
+        print('Overall %i runs have been performed.' % res.size)
+        analysis(np.array(res), bc=bc_mode, c0=c0, xx=xx, cc=cc, tt=tt,
+                 plot=True, per=0.1)
         print('\nPlots have been made and data was extraced and saved.')
         sys.exit()
     # ---------------- option for analysis only --------------------------- #
@@ -237,10 +259,11 @@ def main():
         results.append(optimization(DRange=DInit[:, i],
                                     FRange=FInit*np.ones(dim+1),
                                     bnds=bnds, cc=cc, tt=tt, deltaX=deltaX,
-                                    c0=c0, verb=verbosity))
+                                    c0=c0, verb=verbosity, bc=bc_mode))
         np.save('result.npy', np.array(results))
 
-    analysis(np.array(results), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
+    analysis(np.array(results), bc=bc_mode, c0=c0, xx=xx, cc=cc, tt=tt,
+             plot=True, per=0.1)
 
     # returns number of runs in order to compute average time per run
     return Runs
