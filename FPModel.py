@@ -12,6 +12,7 @@ import sys
 # definition of rate matrix
 # with reflective BCs or one sided open BCs
 # in case of open BCs df contains d and f for leftmost bin outside domain
+# TODO: check this, why is it so different from roberts results?
 def WMatrixGrima(d, f, deltaX=1, bc='reflective'):
     '''
     Calculates entries of rate matrix W with rank F.size
@@ -209,7 +210,8 @@ def computeDF(d, f, shape, mode='segments', transiBin=None, dx=None):
 def WMatrix(d, f, deltaX=1, bc='reflective'):
     '''
     Calculates entries of rate matrix W with rank F.size
-    definition in R. Schulz, PNAS, 2016
+    definition in R. Schulz, PNAS, 2016.
+    Column sum has to be zero per definition --> concentration is conserved!
     '''
 
     FUp = f - np.roll(f, -1)  # F contributions off-diagonal
@@ -250,7 +252,8 @@ def calcC(cc, t, W=None, T=None, bc='reflective', W10=None, c0=None, Qb=None,
           Q=None, b=None):
     '''
     Calculates concentration profiles at time t from W or T matrix with
-    reflective or open boundaries, based on concentration profile cc
+    reflective or open boundaries, based on concentration profile cc.
+    Due to computing exp(W*dt) as T^dt, only integers are allowed for 't'.
     '''
 
     # calculate only variables that are not given

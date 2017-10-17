@@ -167,31 +167,29 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False, bc='reflective',
     # N paramters to be optimized, D', D and F
     d = df[:dim]
     f = df[dim:]  # letting F completely free
+
     # calculating W and T matrix and extra variables for open BCs
     if bc is 'open1side':
         W, W10 = fp.WMatrix(d, f, deltaX, bc=bc)
-    else:
-        W = fp.WMatrix(d, f, deltaX, bc=bc)
-        # testing conservation of concentration for reflective boundaries
-        if np.max(np.sum(W, 1)) > 0.01:
-            sys.exit()
-            print("WMatrix row sum does not vanish:\n",
-                  np.max(np.sum(W, 1)))
-
-    # catching singular matrix exception
-    try:
-        Q = la.inv(W)  # inverse of W
-    except la.linalg.LinAlgError:
-        print('Values for which singular Matrix occured: \n')
-        print('D: \n', d, '\n F: \n', f, '\n')
-        print('WMatrix: \n', W)
-        Q = al.inv(W)  # trying different inversion method
-
-    if bc is 'open1side':
+        try:
+            Q = la.inv(W)  # inverse of W
+        except la.linalg.LinAlgError:
+            print('Values for which singular Matrix occured: \n')
+            print('D: \n', d, '\n F: \n', f, '\n')
+            print('WMatrix: \n', W)
+            Q = al.inv(W)  # trying different inversion method
         b = np.append(c0*W10, np.zeros(N-1))  # extra vector for open BCs
         Qb = np.dot(Q, b)  # product is calculated
     else:
-        Qb = None  # empty Q*b for reflective boundary conditions
+        W = fp.WMatrix(d, f, deltaX, bc=bc)
+        Qb = None  # no inverse W-Matrix needed for reflective boundaries
+        # and also not possible because WMatrix is singular for reflective BCs
+        # testing conservation of concentration for reflective boundaries
+        if np.max(np.sum(W, 1)) > 0.01:
+            sys.exit()
+            print("WMatrix column sum does not vanish:\n",
+                  np.max(np.sum(W, 0)))
+
     T = al.expm(W)  # storing exponential matrix
 
     # computing residual vector
