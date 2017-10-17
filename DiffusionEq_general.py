@@ -153,7 +153,8 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
 
 # function for computation of residuals, given to optimization function as
 # argument to be optimized
-def resFun(df, cc, tt, deltaX=1, c0=None, verb=False, bc='reflective'):
+def resFun(df, cc, tt, deltaX=1, c0=None, verb=False, bc='reflective',
+           dim=None):
     '''
     This function computes residuals from given D and F and Concentration
     Profiles. Additional parameters include: discretization width: deltaX,
@@ -164,13 +165,18 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False, bc='reflective'):
     N = cc[:, 0].size  # number of bins
 
     # N paramters to be optimized, D', D and F
-    d = df[:(N+1)]
-    f = df[(N+1):]  # letting F completely free
+    d = df[:dim]
+    f = df[dim:]  # letting F completely free
     # calculating W and T matrix and extra variables for open BCs
     if bc is 'open1side':
         W, W10 = fp.WMatrix(d, f, deltaX, bc=bc)
     else:
         W = fp.WMatrix(d, f, deltaX, bc=bc)
+        # testing conservation of concentration for reflective boundaries
+        if np.max(np.sum(W, 1)) > 0.01:
+            sys.exit()
+            print("WMatrix row sum does not vanish:\n",
+                  np.max(np.sum(W, 1)))
 
     # catching singular matrix exception
     try:
@@ -213,7 +219,7 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False, bc='reflective'):
 
 # extra function for optimization process, written for easy parallelization
 def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0,
-                 bc='reflective'):
+                 bc='reflective', dim=None):
     """
     Helper function for non-linear LS optimization to profiles.
     """
@@ -226,7 +232,7 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0,
         scpVerb = verb
 
     optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX, c0=c0,
-                          verb=funcVerb, bc=bc)
+                          verb=funcVerb, bc=bc, dim=dim)
 
     initVal = np.concatenate((DRange, FRange))
     # running freely with standart termination conditions
@@ -238,10 +244,8 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, c0=None, verb=0,
 
 def main():
     # reading input and setting up analysis
-    (bc_mode, verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
+    (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
      bnds, FInit, DInit) = io.startUp()
-
-    dim = cc[:, 0].size  # number of discretization bins
 
     # ---------------- option for analysis only --------------------------- #
     if ana:
@@ -257,9 +261,9 @@ def main():
     results = []
     for i in range(Runs):
         results.append(optimization(DRange=DInit[:, i],
-                                    FRange=FInit*np.ones(dim+1),
+                                    FRange=FInit*np.ones(dim),
                                     bnds=bnds, cc=cc, tt=tt, deltaX=deltaX,
-                                    c0=c0, verb=verbosity, bc=bc_mode))
+                                    c0=c0, verb=verbosity, bc=bc_mode, dim=dim))
         np.save('result.npy', np.array(results))
 
     analysis(np.array(results), bc=bc_mode, c0=c0, xx=xx, cc=cc, tt=tt,
