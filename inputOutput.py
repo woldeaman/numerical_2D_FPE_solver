@@ -25,7 +25,9 @@ def startUp():
         Following 'i' columns are profiles at times dt*i.
         """), formatter_class=ap.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-p', dest='path', type=str,
-                        help='define the path to data for analysis')
+                        help='Define the path to data for analysis. First '
+                        'column in file should be distance vector, following '
+                        'columns profiles at different time points')
     parser.add_argument('-v', dest='verbosity', type=int, help='set '
                         'verbosity level ranging from 0 - no output to 2 - '
                         'full output, -1 - means custom verbose mode')
@@ -48,10 +50,11 @@ def startUp():
     # reading run parameters from stdin
     # select apropriate boundary conditions
     print('Analysis with fixed concentration at left boundary? [yes/no]')
-    answer = sys.stdin.readline()
-    if answer is 'yes' or answer is 'Yes' or answer is 'y' or answer is 'Y':
+    answer = input()
+    yes, no = ['yes', 'y', 'Yes', 'YES'], ['no', 'n', 'No', 'NO']
+    if answer in yes:
         bc_mode = 'open1side'  # analysis with fixed concentration
-    if answer is 'no' or answer is 'No' or answer is 'n' or answer is 'N':
+    elif answer in no:
         bc_mode = 'reflective'  # analysis with reflecting boundary conditions
     else:
         print('Error: input could not be read. Supply yes or no answer!')
@@ -76,11 +79,11 @@ def startUp():
 
     print('Should profiles be pre-processed? If yes, profiles will be '
           'filtered using Savitzky-Golay. [yes/no]:')
-    answer = sys.stdin.readline()
-    if answer is 'yes' or answer is 'Yes' or answer is 'y' or answer is 'Y':
-        preProcessing = True  # filter profiles
-    if answer is 'no' or answer is 'No' or answer is 'n' or answer is 'N':
-        preProcessing = False  # do not filter profiles
+    answer = input()
+    if answer in yes:
+        do_pre = True  # filter profiles
+    elif answer in no:
+        do_pre = False  # do not filter profiles
     else:
         print('Error: input could not be read. Supply yes or no answer!')
         sys.exit()
@@ -92,14 +95,15 @@ def startUp():
     try:  # change seperator accordingly
         data = readData(args.path, sep=';')
     except ValueError:
-        data = readData(args.path, sep=',')
-    except ValueError:
-        data = readData(args.path)
+        try:
+            data = readData(args.path, sep=',')
+        except ValueError:
+            data = readData(args.path, sep=' ')
     xx_exp = data[:, 0]  # first column assumed to be distance vector
     # now reading profiles based on input for different timepoints
     cc_exp = np.array([data[:, int(t/dt + 1)] for t in tt]).T
 
-    if preProcessing:
+    if do_pre:
         # pre processing of profiles
         # filtering and setting negative c-values to zero
         print('\nDoing pre-processing...')
@@ -152,8 +156,8 @@ def startUp():
     DInit = (np.random.rand(dim, Runs)*DBound)
 
     print('\nStarting optimization...\n')
-    return (bc_mode, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit,
-            DInit)
+    return (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds,
+            FInit, DInit)
 
 
 # reading data
