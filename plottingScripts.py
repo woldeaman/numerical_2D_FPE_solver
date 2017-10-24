@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import numpy as np
 import sys
 
@@ -18,7 +19,7 @@ def plotMinError(distance, Error, ESTD, save=False,
     plt.xlabel('Transition Layer Thickness d [µm]')
     plt.ylabel('Minimal Error [$\pm$ µM]')
     if save:
-        plt.savefig(path+'minError.pdf')
+        plt.savefig(path+'minError.pdf', bbox_inches='tight')
     else:
         plt.show()
 
@@ -60,15 +61,19 @@ def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False,
     plt.tick_params('y', colors='r')
     plt.xlabel('Distance [µm]')
     if save:
-        plt.savefig(path+'bestDF.pdf')
+        plt.savefig(path+'bestDF.pdf', bbox_inches='tight')
     else:
         plt.show()
 
 
 # for plotting concentration profiles
-def plotCon(xx, cc, ccRes, tt, save=False, path=None):
+def plotCon(xx, cc, ccRes, tt, locs=[1, 3], colorbar=False, styles=['--', '-'],
+            save=False, path=None):
     '''
     Plots analyzed concentration profiles.
+    'locs' - determines location for the two legends.
+    'colorbar' - plots colorbar instead of legends.
+    'styles' - defines styles for experimental and numerical profiles.
     '''
     if path is None:
         if sys.platform == "darwin":  # folder for linux
@@ -81,7 +86,9 @@ def plotCon(xx, cc, ccRes, tt, save=False, path=None):
     # plotting concentration profiles
     l1s = []  # for sperate legends
     l2s = []
-    colors = ['r', 'm', 'c', 'b', 'y', 'k', 'g']
+    # mapping profiles to colormap
+    lines = np.linspace(0, 1, M)
+    colors = [cm.jet(x) for x in lines]
 
     plt.figure(0)
     for j in range(M):
@@ -91,17 +98,21 @@ def plotCon(xx, cc, ccRes, tt, save=False, path=None):
         plt.ylabel('Concentration [µM]')
         l1, = plt.plot(xx, cc[:, j], '--', color=colors[j])
         l1s.append([l1])
-        l2, = plt.plot(xx, ccRes[:, j], '-', color=colors[j])
-        l2s.append([l2])
+        if j > 0:
+            # plot t=0 profile only for experiment
+            # because numerical profiles are computed from this one
+            l2, = plt.plot(xx, ccRes[:, j], '-', color=colors[j])
+            l2s.append([l2])
     # plotting two legends, for color and linestyle
-    legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=1)
+    # TODO: add plotting of colorbar instead of legend
+    legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=locs[0])
     plt.legend([l[0] for l in l1s], ["%.2f min" % (tt[i]/60) if tt[i] % 60 != 0
                                      else "%i min" % int(tt[i]/60)
-                                     for i in range(tt.size)], loc=3)
+                                     for i in range(tt.size)], loc=locs[1])
     plt.gca().add_artist(legend1)
 
     if save:
-        plt.savefig(path+'profiles.pdf')
+        plt.savefig(path+'profiles.pdf', bbox_inches='tight')
     else:
         plt.show()
 
@@ -166,6 +177,6 @@ def plotConTrans(xx, cc, ccRes, c0, tt, TransIndex, layerD, save=False,
     plt.gca().add_artist(legend1)
 
     if save:
-        plt.savefig(path+'profiles.pdf')
+        plt.savefig(path+'profiles.pdf', bbox_inches='tight')
     else:
         plt.show()

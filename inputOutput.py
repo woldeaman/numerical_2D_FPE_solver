@@ -63,8 +63,8 @@ def startUp():
     # reading fixed concentration if chosen bc
     if bc_mode is 'open1side':
         # 4µM for Kathy's data and and 15 µM for Tahouras data
-        print('Set concentration of peptide solution (same units as profiles):')
-        c0 = int(sys.stdin.readline())
+        print('Set concentration value at boundary (same units as profiles):')
+        c0 = float(sys.stdin.readline())
     else:
         c0 = None
 
@@ -142,7 +142,7 @@ def startUp():
         dim = cc[:, 0].size + 1
     # -------------- reading and pre-processing profiles ------------------- #
 
-    # setting reasonable bounds for F and D
+    # setting reasonable bounds for F e [-FBound, FBound], D e [0, DBound]
     # and setting number of runs
     DBound = 1000
     FBound = 20

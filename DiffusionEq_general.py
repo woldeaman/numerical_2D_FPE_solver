@@ -104,21 +104,23 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
     if bc is 'open1side':
         # extended xx and cc vector for open boundary condition
         xx_ext = np.concatenate((-deltaX*np.ones(1), xx))
-        ccRes_ext = np.concatenate((np.ones((1, 4))*c0, ccRes))
+        ccRes_ext = np.concatenate((np.ones((1, M))*c0, ccRes))
+        cc_ext = np.concatenate((np.ones((1, M))*c0, cc))
     else:
         xx_ext = xx
         ccRes_ext = ccRes
+        cc_ext = cc
 
+    # header for txt file in which concentration profiles will be saved
+    header_cons = ''
+    for i, t in enumerate(tt):
+        header_cons += ('column%i: c-profile [micro_M] for t_%i = %i min\n'
+                        % (i+2, i, int(t/60)))
     # saving analyzed data for best results for plotting
     np.savetxt(savePath+'concentrationRes.txt', np.c_[xx_ext, ccRes_ext],
                delimiter=',',
                header=('Numerically computed concentration profiles\n'
-                       'column1: x-distance [micro_m]\n'
-                       'cloumn2: c-profile [micro_M] for t_0 = %i min\n'
-                       'cloumn3: c-profile [micro_M] for t_1 = %i min\n'
-                       'cloumn4: c-profile [micro_M] for t_2 = %i min\n'
-                       'cloumn5: c-profile [micro_M] for t_3 = %i min\n' %
-                        (tt[0]/60, tt[1]/60, tt[2]/60, tt[3]/60)))
+                       'column1: x-distance [micro_m]\n'+header_cons))
     # saving averaged DF
     np.savetxt(savePath+'DF.txt', np.c_[xx_ext, D, DSTD, F, FSTD],
                delimiter=',',
@@ -127,7 +129,7 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
                        'cloumn2: average diffusivity [micro_m^2/s]\n'
                        'cloumn3: stdev of diffusivity [+/- micro_m^2/s]\n'
                        'cloumn4: average free energy [k_BT]\n'
-                       'cloumn5: stdev of free energy [+/- k_BT]\n'))
+                       'cloumn5: stdev of free energy [+/- k_BT]'))
     # saving best DF
     np.savetxt(savePath+'DF_best.txt', np.c_[xx_ext, D_best, F_best],
                delimiter=',',
@@ -135,7 +137,7 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
                        'error from analysis\n'
                        'column1: x-distance [micro_m]\n'
                        'cloumn2: diffusivity [micro_m^2/s]\n'
-                       'cloumn3: free energy [k_BT]\n'))
+                       'cloumn3: free energy [k_BT]'))
 
     # saving Error of top 1% of runs
     np.savetxt(savePath+'minError.txt', Error[indices[:nbr]], delimiter=',',
@@ -145,10 +147,11 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
     # ------------------------- plotting data ------------------------------- #
     if plot:
         # plotting profiles
-        ps.plotCon(xx_ext, cc, ccRes_ext, tt, c0=c0, save=True, path=savePath)
+        ps.plotCon(xx_ext, cc_ext, ccRes_ext, tt, locs=[1, 3], save=True,
+                   path=savePath)
         # plotting averaged D and F
-        ps.plotDF(xx_ext, D, F, D_STD=DSTD, F_STD=FSTD, save=True, path=savePath,
-                  scale='log')
+        ps.plotDF(xx_ext, D, F, D_STD=DSTD, F_STD=FSTD, save=True,
+                  style='.--', path=savePath)
 
 
 # function for computation of residuals, given to optimization function as
@@ -185,10 +188,10 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False, bc='reflective',
         Qb = None  # no inverse W-Matrix needed for reflective boundaries
         # and also not possible because WMatrix is singular for reflective BCs
         # testing conservation of concentration for reflective boundaries
-        if np.max(np.sum(W, 1)) > 0.01:
-            sys.exit()
+        if np.max(np.sum(W, 0)) > 0.01:
             print("WMatrix column sum does not vanish:\n",
                   np.max(np.sum(W, 0)))
+            sys.exit()
 
     T = al.expm(W)  # storing exponential matrix
 
@@ -258,11 +261,17 @@ def main():
 
     results = []
     for i in range(Runs):
-        results.append(optimization(DRange=DInit[:, i],
-                                    FRange=FInit*np.ones(dim),
-                                    bnds=bnds, cc=cc, tt=tt, deltaX=deltaX,
-                                    c0=c0, verb=verbosity, bc=bc_mode, dim=dim))
-        np.save('result.npy', np.array(results))
+        print('\nNow at run %i out of %i...\n' % (i+1, Runs))
+        try:
+            results.append(optimization(DRange=DInit[:, i],
+                                        FRange=FInit*np.ones(dim),
+                                        bnds=bnds, cc=cc, tt=tt, deltaX=deltaX,
+                                        c0=c0, verb=verbosity, bc=bc_mode,
+                                        dim=dim))
+            np.save('result.npy', np.array(results))
+        except KeyboardInterrupt:
+            print('\n\nScript has been terminated.\nData will now be analyzed...')
+            break
 
     analysis(np.array(results), bc=bc_mode, c0=c0, xx=xx, cc=cc, tt=tt,
              plot=True, per=0.1)
