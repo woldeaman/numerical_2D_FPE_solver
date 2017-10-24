@@ -41,3 +41,10 @@ Thumbs.db
 # jupyter notebook #
 ###################
 __pycache__
+
+# results from analysis #
+#########################
+*.pdf
+*.txt
+*.npy
+*.xlsx
