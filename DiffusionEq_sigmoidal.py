@@ -3,6 +3,7 @@
 # # use this for matplotlib on the cluster
 # import matplotlib
 # matplotlib.use('Agg')
+# TODO: implement also reflective bc's with sigmoidal D and F
 import numpy as np
 import time
 import inputOutput as io
@@ -105,7 +106,7 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
                                       sigParamsDF_best[3], x) for x in xx_ext])
 
     # computing WMatrix for open boundary conditions
-    W, W10 = fp.WMatrixGrima(D_best, F_best, deltaX=deltaX, bc='open1side')
+    W, W10 = fp.WMatrix(D_best, F_best, deltaX=deltaX, bc='open1side')
     # computing concentration profiles for best D and F
     ccRes = np.array([fp.calcC(cc[:, 0], tt[j], W=W, W10=W10, c0=c0,
                                bc='open1side') for j in range(tt.size)]).T
@@ -113,20 +114,22 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
 
     # --------------------------- saving data ------------------------------- #
     # extended xx and cc vector for boundary condition
-    ccRes_ext = np.concatenate((np.ones((1, 4))*c0, ccRes))
+    ccRes_ext = np.concatenate((np.ones((1, M))*c0, ccRes))
+    cc_ext = np.concatenate((np.ones((1, M))*c0, cc))
 
+    # header for txt file in which concentration profiles will be saved
+    header_cons = ''
+    for i, t in enumerate(tt):
+        header_cons += ('column%i: c-profile [micro_M] for t_%i = %i min\n'
+                        % (i+2, i, int(t/60)))
     # saving analyzed data for best results for plotting
     np.savetxt(savePath+'concentrationRes.txt', np.c_[xx_ext, ccRes_ext],
                delimiter=',',
                header=('Numerically computed concentration profiles\n'
-                       'column1: x-distance [micro_m]\n'
-                       'cloumn2: c-profile [micro_M] for t_0 = %i min\n'
-                       'cloumn3: c-profile [micro_M] for t_1 = %i min\n'
-                       'cloumn4: c-profile [micro_M] for t_2 = %i min\n'
-                       'cloumn5: c-profile [micro_M] for t_3 = %i min\n' %
-                        (tt[0]/60, tt[1]/60, tt[2]/60, tt[3]/60)))
+                       'column1: x-distance [micro_m]\n'+header_cons))
+
     # saving averaged DF
-    np.savetxt(savePath+'DF.txt', np.c_[xx_ext, D_mean, DSTD, F_mean, FSTD],
+    np.savetxt(savePath+'DF_avg.txt', np.c_[xx_ext, D_mean, DSTD, F_mean, FSTD],
                delimiter=',',
                header=('Diffusivity and free energy profiles from analysis\n'
                        'column1: x-distance [micro_m]\n'
@@ -152,27 +155,44 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     worksheet = workbook.add_worksheet()
     bold = workbook.add_format({'bold': True})
     # writing headers
-    worksheet.write('A1', 'D_sol [µm^2/s]', bold)
-    worksheet.write('B1', 'D_muc [µm^2/s]', bold)
-    worksheet.write('C1', 'F_muc [kT]', bold)
-    worksheet.write('D1', 't_D [µm]', bold)
-    worksheet.write('E1', 't_F [µm]', bold)
-    worksheet.write('F1', 'd_D [µm]', bold)
-    worksheet.write('G1', 'd_F [µm]', bold)
-    worksheet.write('H1', 'min E [+/- µM]', bold)
+    worksheet.write('A1', 'D_sol_avg [µm^2/s]', bold)
+    worksheet.write('B1', 'D_sol_best [µm^2/s]', bold)
+    worksheet.write('C1', 'D_muc_avg [µm^2/s]', bold)
+    worksheet.write('D1', 'D_muc_best [µm^2/s]', bold)
+    worksheet.write('E1', 'F_muc_avg [kT]', bold)
+    worksheet.write('F1', 'F_muc_best [kT]', bold)
+    worksheet.write('G1', 't_D_avg [µm]', bold)
+    worksheet.write('H1', 't_D_best [µm]', bold)
+    worksheet.write('I1', 't_F_avg [µm]', bold)
+    worksheet.write('J1', 't_F_best [µm]', bold)
+    worksheet.write('K1', 'd_D_avg [µm]', bold)
+    worksheet.write('L1', 'd_D_best [µm]', bold)
+    worksheet.write('M1', 'd_F_avg [µm]', bold)
+    worksheet.write('N1', 'd_F_best [µm]', bold)
+    worksheet.write('O1', 'min E [+/- µM]', bold)
     # writing entries
-    worksheet.write('A2', '%.2f +/- %.2f' % (D_best_pre[0], DSTD_pre[0]))
-    worksheet.write('B2', '%.2f +/- %.2f' % (D_best_pre[-1], DSTD_pre[-1]))
-    worksheet.write('C2', '%.2f +/- %.2f' % (F_best_pre[-1], FSTD_pre[-1]))
-    worksheet.write('D2', '%.2f +/- %.2f' % (sigParamsDF_best[0],
+    # D_muc/D_sol and F_muc/F_sol are the corresponding parameters of sigmoidal
+    # functions, does not neccesseraly have to be the value of D and F there,
+    # because profile could be shaped to not reach plateau there !
+    worksheet.write('A2', '%.2f +/- %.2f' % (D_pre[0], DSTD_pre[0]))
+    worksheet.write('B2', '%.2f' % D_best_pre[0])
+    worksheet.write('C2', '%.2f +/- %.2f' % (D_pre[-1], DSTD_pre[-1]))
+    worksheet.write('D2', '%.2f' % D_best_pre[-1])
+    worksheet.write('E2', '%.2f +/- %.2f' % (F_pre[-1], FSTD_pre[-1]))
+    worksheet.write('F2', '%.2f' % F_best_pre[-1])
+    worksheet.write('G2', '%.2f +/- %.2f' % (sigParamsDF_mean[0],
                                              sigParamsDF_STD[0]))
-    worksheet.write('E2', '%.2f +/- %.2f' % (sigParamsDF_best[2],
+    worksheet.write('H2', '%.2f' % sigParamsDF_best[0])
+    worksheet.write('I2', '%.2f +/- %.2f' % (sigParamsDF_mean[2],
                                              sigParamsDF_STD[2]))
-    worksheet.write('F2', '%.2f +/- %.2f' % (sigParamsDF_best[1],
+    worksheet.write('J2', '%.2f' % sigParamsDF_best[2])
+    worksheet.write('K2', '%.2f +/- %.2f' % (sigParamsDF_mean[1],
                                              sigParamsDF_STD[1]))
-    worksheet.write('G2', '%.2f +/- %.2f' % (sigParamsDF_best[3],
+    worksheet.write('L2', '%.2f' % sigParamsDF_best[1])
+    worksheet.write('M2', '%.2f +/- %.2f' % (sigParamsDF_mean[3],
                                              sigParamsDF_STD[3]))
-    worksheet.write('H2', '%.2f' % Error[indices[0]])
+    worksheet.write('N2', '%.2f' % sigParamsDF_best[3])
+    worksheet.write('O2', '%.2f' % Error[indices[0]])
 
     # adjusting cell widths
     worksheet.set_column(0, 5, len('min E [+/- µM]'))
@@ -182,9 +202,10 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     # ------------------------- plotting data ------------------------------- #
     if plot:
         # plotting profiles
-        ps.plotCon(xx_ext, cc_ext, ccRes, tt, c0=c0, save=True, path=savePath)
+        ps.plotCon(xx_ext, cc_ext, ccRes_ext, tt, locs=[1, 3], save=True,
+                   path=savePath)
         # plotting averaged D and F
-        ps.plotDF(xx_ext, D_mean, F_mean, style='-.', D_STD=DSTD, F_STD=FSTD,
+        ps.plotDF(xx_ext, D_mean, F_mean, style='--.', D_STD=DSTD, F_STD=FSTD,
                   save=True, path=savePath, scale='linear')
 
 
@@ -211,7 +232,7 @@ def resFun(df, cc, xx, tt, deltaX=1, c0=None, verb=False):
     D = np.array([fp.sigmoidalDF(d, t_D, d_D, x) for x in xx_ext])
     F = np.array([fp.sigmoidalDF(f, t_F, d_F, x) for x in xx_ext])
     # calculating W and T matrix and extra variables for open BCs
-    W, W10 = fp.WMatrixGrima(D, F, deltaX, bc='open1side')
+    W, W10 = fp.WMatrix(D, F, deltaX, bc='open1side')
     # catching singular matrix exception
     try:
         Q = la.inv(W)  # inverse of W
@@ -255,6 +276,9 @@ def resFun(df, cc, xx, tt, deltaX=1, c0=None, verb=False):
 # extra function for optimization process, written for easy parallelization
 def optimization(DRange, FRange, tdRange, bnds, cc, xx, tt, deltaX=1, c0=None,
                  verb=0):
+    """
+    Helper function for non-linear LS optimization to profiles.
+    """
 
     if verb == -1:
         funcVerb = True
@@ -276,7 +300,7 @@ def optimization(DRange, FRange, tdRange, bnds, cc, xx, tt, deltaX=1, c0=None,
 
 def main():
     # reading input and setting up analysis
-    (bc_mode, verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
+    (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
      bnds, FInit, DInit) = io.startUp()
 
     # ---------------- option for analysis only --------------------------- #
@@ -291,7 +315,7 @@ def main():
 
     # setting reasonable bounds for F and D
     DBound = 1000
-    FBound = 10
+    FBound = 20
 
     bndsDUpper = np.ones(2)*DBound
     bndsFUpper = np.ones(2)*FBound
@@ -307,15 +331,20 @@ def main():
     FInit = 0
     DInit = (np.random.rand(2, Runs)*DBound)
     # order is [t_D, d_D, t_F, d_F]
-    tdInit = np.array([np.max(xx)/4, deltaX]*2)
+    # set boundary initially at x = 100
+    tdInit = np.array([100, deltaX*3]*2)
 
     results = []
     for i in range(Runs):
-        results.append(optimization(DRange=DInit[:, i],
-                                    FRange=FInit*np.ones(2), tdRange=tdInit,
-                                    bnds=bnds, cc=cc, xx=xx, tt=tt,
-                                    deltaX=deltaX, c0=c0, verb=verbosity))
-        np.save('result.npy', np.array(results))
+        try:
+            results.append(optimization(DRange=DInit[:, i],
+                                        FRange=FInit*np.ones(2), tdRange=tdInit,
+                                        bnds=bnds, cc=cc, xx=xx, tt=tt,
+                                        deltaX=deltaX, c0=c0, verb=verbosity))
+            np.save('result.npy', np.array(results))
+        except KeyboardInterrupt:
+            print('\n\nScript has been terminated.\nData will now be analyzed...')
+            break
 
     analysis(np.array(results), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
 
