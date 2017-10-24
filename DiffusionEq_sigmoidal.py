@@ -195,7 +195,7 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     worksheet.write('O2', '%.2f' % Error[indices[0]])
 
     # adjusting cell widths
-    worksheet.set_column(0, 5, len('min E [+/- µM]'))
+    worksheet.set_column(0, 15, len('D_sol_best [µm^2/s]'))
     workbook.close()
     # --------------------------- saving data ------------------------------- #
 
@@ -336,6 +336,7 @@ def main():
 
     results = []
     for i in range(Runs):
+        print('\nNow at run %i out of %i...\n' % (i+1, Runs))
         try:
             results.append(optimization(DRange=DInit[:, i],
                                         FRange=FInit*np.ones(2), tdRange=tdInit,
