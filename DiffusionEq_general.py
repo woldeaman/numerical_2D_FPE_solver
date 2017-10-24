@@ -122,7 +122,7 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
                header=('Numerically computed concentration profiles\n'
                        'column1: x-distance [micro_m]\n'+header_cons))
     # saving averaged DF
-    np.savetxt(savePath+'DF.txt', np.c_[xx_ext, D, DSTD, F, FSTD],
+    np.savetxt(savePath+'DF_avg.txt', np.c_[xx_ext, D, DSTD, F, FSTD],
                delimiter=',',
                header=('Diffusivity and free energy profiles from analysis\n'
                        'column1: x-distance [micro_m]\n'
