@@ -61,7 +61,7 @@ def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False,
     plt.tick_params('y', colors='r')
     plt.xlabel('Distance [µm]')
     if save:
-        plt.savefig(path+'bestDF.pdf', bbox_inches='tight')
+        plt.savefig(path+'avgDF.pdf', bbox_inches='tight')
     else:
         plt.show()
 
