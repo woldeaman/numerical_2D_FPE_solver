@@ -22,7 +22,7 @@ startTime = time.time()
 
 
 def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
-             savePath=None):
+             alpha=0, savePath=None):
     '''
     Function analyses results from ls-optimization,
     if given comparison plots of results and original concentration profiles
@@ -33,7 +33,8 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
     # ----------------- setting working parameters --------------------- #
     # saving output in current results folder in current directory
     if savePath is None:
-        savePath = os.path.join(os.getcwd(), 'results/')
+        # HACK: change this back to name the folder only results
+        savePath = os.path.join(os.getcwd(), 'results_alpha=%f/' % alpha)
         if not os.path.exists(savePath):
             os.makedirs(savePath)
 
@@ -43,7 +44,7 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
         M = tt.size  # number of different profiles
 
     N = cc[:, 0].size  # number of bins
-    n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
+    n = M-1
     if xx is None:
         xx = np.arange(N)
     deltaX = abs(xx[0] - xx[1])
@@ -208,10 +209,31 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
         ps.plotDF(xx_ext, D_mean, F_mean, style='--.', D_STD=DSTD, F_STD=FSTD,
                   save=True, path=savePath, scale='linear')
 
+    # ---------------------- regularization ------------------------------ #
+    # NOTE: this is for analysis of parameter for L2 regularization
+    RR = np.zeros((n, N))
+    k = 0
+    for j in range(M):
+        RR[k, :] = cc[:, j] - fp.calcC(cc[:, 0], (tt[j] - tt[0]), W=W,
+                                       W10=W10, c0=c0, bc='open1side')
+        k += 1
+    RRn = RR.reshape(RR.size)  # residual vector contains all deviations
+
+    residual = np.sum(RRn**2)
+    df0 = np.array([70, 25, 0, 1.5, 100, 20, 100, 20])  # optimal solution
+    df = np.concatenate((D_best_pre, F_best_preNoGauge, sigParamsDF_best))
+    regularization = np.sum((df-df0)**2)
+
+    print('\nBest solution has residuals\n|A*x-b|^2 = %f\n|x-x_0|^2 = %f' %
+          (residual, regularization))
+    np.savetxt('res_alpha=%f.txt' % alpha, np.array([residual, regularization]),
+               header='row 1: |A*x-b|^2\nrow 2: |x-x_0|^2')
+    # ---------------------- regularization ------------------------------ #
+
 
 # function for computation of residuals, given to optimization function as
 # argument to be optimized
-def resFun(df, cc, xx, tt, deltaX=1, c0=None, verb=False):
+def resFun(df, cc, xx, tt, deltaX=1, c0=None, alpha=0, verb=False):
     '''
     This function computes residuals from given D and F and Concentration
     Profiles. Additional parameters include: discretization width: deltaX,
@@ -248,34 +270,37 @@ def resFun(df, cc, xx, tt, deltaX=1, c0=None, verb=False):
     T = al.expm(W)  # storing exponential matrix
 
     # computing residual vector for mucus model
-    n = int(sp.binom(M, 2))  # number of combinations for different c-profiles
+    # CHANGED: now computing only from c_0 at tt[0]
+    n = M-1  # number of combinations for different c-profiles
     RR = np.zeros((n, N))
 
     k = 0
-    for i in range(M):
-        for j in range(M):
-            if j > i:
-                RR[k, :] = cc[:, j] - fp.calcC(cc[:, i], (tt[j] - tt[i]),
-                                               T=T, Qb=Qb, bc='open1side')
-                k += 1
+    for j in range(1, M):
+        RR[k, :] = cc[:, j] - fp.calcC(cc[:, 0], (tt[j] - tt[0]),
+                                       T=T, Qb=Qb, bc='open1side')
+        k += 1
 
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
+
+    # TODO: implement this correctly and nicely
+    # now trying tykhonov regularization
+    # its: d1, d2, f1, f2, t_D, d_D, t_F, d_F
+    df0 = np.array([70, 25, 0, 1.5, 100, 20, 100, 20])  # optimal solution
+    regFactor = alpha*(df-df0)  # regularizing term
+    RRn = np.append(RRn, regFactor)
 
     # print out error estimate in form of standart deviation if wanted
     if (verb):
         E = np.sqrt(np.sum(RRn**2)/(N*n))  # normalized version
         print(E)
 
-    # print('Current iteration:\n')
-    # print('D: \n', d, '\nF: \n', f, '\nt_D, d_D: \n', [t_D, d_D],
-    #       '\nt_F, d_F: \n', [t_F, d_F], '\n', )
     return RRn
 
 
 # extra function for optimization process, written for easy parallelization
 def optimization(DRange, FRange, tdRange, bnds, cc, xx, tt, deltaX=1, c0=None,
-                 verb=0):
+                 alpha=0, verb=0):
     """
     Helper function for non-linear LS optimization to profiles.
     """
@@ -288,7 +313,7 @@ def optimization(DRange, FRange, tdRange, bnds, cc, xx, tt, deltaX=1, c0=None,
         scpVerb = verb
 
     optimize = ft.partial(resFun, cc=cc, xx=xx, tt=tt, deltaX=deltaX, c0=c0,
-                          verb=funcVerb)
+                          verb=funcVerb, alpha=alpha)
 
     initVal = np.concatenate((DRange, FRange, tdRange))
     # running freely with standart termination conditions
@@ -300,15 +325,16 @@ def optimization(DRange, FRange, tdRange, bnds, cc, xx, tt, deltaX=1, c0=None,
 
 def main():
     # reading input and setting up analysis
-    (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt,
-     bnds, FInit, DInit) = io.startUp()
+    (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit,
+     DInit, alpha) = io.startUp()
 
     # ---------------- option for analysis only --------------------------- #
     if ana:
         print('\nDoing analysis only.')
         res = np.load('result.npy')
         print('Overall %i runs have been performed.' % res.size)
-        analysis(np.array(res), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
+        analysis(np.array(res), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1,
+                 alpha=alpha)
         print('\nPlots have been made and data was extraced and saved.')
         sys.exit()
     # ---------------- option for analysis only --------------------------- #
@@ -341,13 +367,15 @@ def main():
             results.append(optimization(DRange=DInit[:, i],
                                         FRange=FInit*np.ones(2), tdRange=tdInit,
                                         bnds=bnds, cc=cc, xx=xx, tt=tt,
-                                        deltaX=deltaX, c0=c0, verb=verbosity))
+                                        deltaX=deltaX, c0=c0, verb=verbosity,
+                                        alpha=alpha))
             np.save('result.npy', np.array(results))
         except KeyboardInterrupt:
             print('\n\nScript has been terminated.\nData will now be analyzed...')
             break
 
-    analysis(np.array(results), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1)
+    analysis(np.array(results), c0=c0, xx=xx, cc=cc, tt=tt, plot=True, per=0.1,
+             alpha=alpha)
 
     # returns number of runs in order to compute average time per run
     return Runs

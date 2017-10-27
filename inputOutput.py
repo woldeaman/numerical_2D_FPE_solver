@@ -74,9 +74,6 @@ def startUp():
     print('Choose profiles for analysis (supply timepoints in seconds):')
     tt = np.array([int(nbr) for nbr in sys.stdin.readline().split()])
 
-    print('Set number of analysis runs:')
-    Runs = int(sys.stdin.readline())  # how many start D, Fs should be tried
-
     print('Should profiles be pre-processed? If yes, profiles will be '
           'filtered using Savitzky-Golay. [yes/no]:')
     answer = input()
@@ -87,6 +84,12 @@ def startUp():
     else:
         print('Error: input could not be read. Supply yes or no answer!')
         sys.exit()
+
+    print('Set regularization parameter alpha (zero means no regularization):')
+    alpha = float(sys.stdin.readline())  # factor for L2 regularization
+
+    print('Set number of analysis runs:')
+    Runs = int(sys.stdin.readline())  # how many start D, Fs should be tried
     # ---------------- setting up analysis parameters ----------------------- #
 
     # -------------- reading and pre-processing profiles ------------------- #
@@ -134,12 +137,7 @@ def startUp():
         sys.exit()
 
     deltaX = abs(xx[0] - xx[1])  # discretization width, assuming constant dx
-    if bc_mode is 'reflective':
-        dim = cc[:, 0].size  # number of discretization bins
-    else:
-        # for fixed c0 boundary condition
-        # parameters is one more than number of bins, because of c0 at boundary
-        dim = cc[:, 0].size + 1
+    dim = cc[:, 0].size  # number of discretization bins
     # -------------- reading and pre-processing profiles ------------------- #
 
     # setting reasonable bounds for F e [-FBound, FBound], D e [0, DBound]
@@ -157,7 +155,7 @@ def startUp():
 
     print('\nStarting optimization...\n')
     return (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds,
-            FInit, DInit)
+            FInit, DInit, alpha)
 
 
 # reading data
