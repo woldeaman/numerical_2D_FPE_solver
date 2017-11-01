@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
+import os
 import sys
 
 
@@ -13,7 +14,7 @@ def plotMinError(distance, Error, ESTD, save=False,
         elif sys.platform.startswith("linux"):  # folder for mac
             path = '/home/amanuelwk/Desktop/'
 
-    plt.figure(1)
+    plt.figure()
     plt.gca().set_xlim([0, np.max(distance)])
     plt.errorbar(distance, Error, yerr=[np.zeros(ESTD.size), ESTD])
     plt.xlabel('Transition Layer Thickness d [µm]')
@@ -25,8 +26,8 @@ def plotMinError(distance, Error, ESTD, save=False,
 
 
 # plotting format for D and F in the same figure
-def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False,
-           path=None, style='.', scale='linear'):
+def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False, style='.',
+           scale='linear', name='avgDF', path=None, ):
     """
     Plots D and F profiles
     """
@@ -36,7 +37,7 @@ def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False,
         elif sys.platform.startswith("linux"):  # folder for mac
             path = '/home/amanuelwk/Desktop/'
 
-    plt.figure(2)
+    plt.figure()
     plt.gca().set_xlim(left=xx[0])
     plt.gca().set_xlim(right=xx[-1])
     # plotting F
@@ -61,7 +62,7 @@ def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False,
     plt.tick_params('y', colors='r')
     plt.xlabel('Distance [µm]')
     if save:
-        plt.savefig(path+'avgDF.pdf', bbox_inches='tight')
+        plt.savefig(path+'%s.pdf' % name, bbox_inches='tight')
     else:
         plt.show()
 
@@ -178,5 +179,54 @@ def plotConTrans(xx, cc, ccRes, c0, tt, TransIndex, layerD, save=False,
 
     if save:
         plt.savefig(path+'profiles.pdf', bbox_inches='tight')
+    else:
+        plt.show()
+
+
+# for printing c-profiles
+def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
+                deltaXX=None):
+
+    M = len(cc)  # number of profiles
+    N = ccRes[0, :].size  # number of bins
+    if deltaXX is None:
+        deltaXX = np.ones(N+1)
+    if path is None:
+        if sys.platform == "darwin":  # folder for linux
+            path = '/Users/AmanuelWK/Desktop/'
+        elif sys.platform.startswith("linux"):  # folder for mac
+            path = '/home/amanuelwk/Desktop/'
+
+    # plotting concentration profiles
+    l1s = []  # for sperate legends
+    l2s = []
+    lines = np.linspace(0, 1, M)
+    colors = [cm.jet(x) for x in lines]
+
+    plt.figure()
+    for j in range(M):
+        plt.gca().set_xlim(left=xx[0])
+        plt.gca().set_xlim(right=xx[-1])
+        plt.xlabel('Bins')
+        plt.ylabel('Concentration [µM]')
+        if j == 0:
+            l1, = plt.plot(xx, cc[j], '--', color=colors[j])
+        else:
+            l1, = plt.plot(xx[6:-3], cc[j], '--', color=colors[j])
+
+        # plot computed only for t > 0, otherwise not computed
+        if j > 0:
+            l1s.append([l1])
+            # concatenated to include constanc c0 boundary condition
+            l2, = plt.plot(xx, ccRes[:, j], '-', color=colors[j])
+            l2s.append([l2])
+    # plotting two legends, for color and linestyle
+    legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=locs[0])
+    plt.legend([l[0] for l in l1s], ["%d min" % (tt[i]/60)
+                                     for i in range(tt.size)], loc=3)
+    plt.gca().add_artist(legend1)
+
+    if save:
+        plt.savefig(path+'profiles.pdf')
     else:
         plt.show()
