@@ -63,8 +63,6 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
     F_pre = np.mean(np.array([result[indices[i]].x[N:]
                               for i in range(nbr)]), axis=0)
     F = F_pre - F_pre[0]
-    D = np.concatenate((np.ones(1)*D[0], D))  # adding extra bin for c0
-    F = np.concatenate((np.ones(1)*F[0], F))
 
     # gathering standart deviation for top 1% of runs
     DSTD_pre = np.std(np.array([result[indices[i]].x[:N]
@@ -75,19 +73,23 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
     DSTD = np.append(DSTD, DSTD[-1])  # fixing same length in D and F
     FSTD = np.std(np.array([result[indices[i]].x[N:]
                             for i in range(nbr)]), axis=0)
-    DSTD = np.concatenate((np.ones(1)*DSTD[0], DSTD))  # adding extra bin for c0
-    FSTD = np.concatenate((np.ones(1)*FSTD[0], FSTD))
 
     # gathering best D and F for computation of profiles
     D_best_pre = result[indices[0]].x[:N]
-    D_best_pre = np.concatenate((np.ones(1)*D_best_pre[0],
-                                 D_best_pre))  # adding extra bin for c0
     D_best = np.array([(D_best_pre[i] + D_best_pre[i+1])/2  # average D
                        for i in range(D_best_pre.size-1)])
     D_best = np.append(D_best, D_best[-1])
     F_best_pre = result[indices[0]].x[N:]
-    F_best_pre = np.concatenate((np.ones(1)*F_best_pre[0], F_best_pre))
     F_best = F_best_pre - F_best_pre[0]
+
+    if bc is 'open1side':
+        # adding extra bin for c0
+        D = np.concatenate((np.ones(1)*D[0], D))
+        F = np.concatenate((np.ones(1)*F[0], F))
+        D_best_pre = np.concatenate((np.ones(1)*D_best_pre[0], D_best_pre))
+        F_best_pre = np.concatenate((np.ones(1)*F_best_pre[0], F_best_pre))
+        DSTD = np.concatenate((np.ones(1)*DSTD[0], DSTD))
+        FSTD = np.concatenate((np.ones(1)*FSTD[0], FSTD))
 
     # computing WMatrix for apropriate boundary conditions
     # using D_pre here because original D is used for WMatrix computation
@@ -175,8 +177,9 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
 
     print('\nBest solution has residuals\n|A*x-b|^2 = %f\n|x-x_0|^2 = %f' %
           (residual, regularization))
-    np.savetxt('res_alpha=%f.txt' % alpha, np.array([residual, regularization]),
-               header='row 1: |A*x-b|^2\nrow 2: |x-x_0|^2')
+    np.savetxt(savePath+'res_alpha=%f.txt' % alpha,
+               np.array([residual, regularization]),
+               header='row 1: |A*x-b|^2\nrow 2: alpha*|x-x_0|^2')
     # ---------------------- regularization ------------------------------ #
 
 
@@ -195,7 +198,7 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False, bc='reflective',
     M = cc[0, :].size  # number of concentration profiles
     N = cc[:, 0].size  # number of bins
 
-    # N paramters to be optimized, D', D and F
+    # N parameters to be optimized for complete D and F profile
     d = df[:N]
     f = df[N:]  # letting F completely free
 

@@ -223,6 +223,12 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
     deltaXX = np.concatenate((np.ones(5)*deltaX[0],
                               np.ones(N+7)*deltaX[1],
                               np.ones(11)*deltaX[2]))
+    # my original values
+    # start = 8  # start of variable DF calculation
+    # end = N+12  # end of variable DF calculation
+    # roberts values
+    # start = 5  # bin at wich start of variable DF calculation
+    # end = N+9  # bin at wich end of variable DF calculation
     W = fp.WMatrixVar(d, f, N, deltaXX, con=debug)
     T = al.expm(W)
 

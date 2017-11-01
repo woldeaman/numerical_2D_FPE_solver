@@ -57,89 +57,96 @@ def sigmoidalDF(df, t, d, x):
     return DF
 
 
-def WMatrixVar(d, f, N, deltaXX, con=False):
+def WMatrixVar(d, f, start, deltaXX, end=None, con=False):
     '''
     Rate matrix for variable discretization widths,
-    *** Integrate this into regular WMatrix computation at some point ***
-    N - Number of bins in c
-    deltaXX - discretization array (has deltaX for each bin)
     d, f - diffusivity, free energy
+    start, end - start and end bin of segment for variable D, F
+    if end is 'None' only two segments will be assumed
+    deltaXX - discretization array (has deltaX for each bin)
     con - flag for c-conservation --> W-Matrix check
     '''
 
-    # my original values
-    # N1 = 8  # start of variable DF calculation
-    # N2 = N+12  # end of variable DF calculation
-
-    # roberts values
-    N1 = 5  # bin at wich start of variable DF calculation
-    N2 = N+9  # bin at wich end of variable DF calculation
-
-    # segment1 with new definition for
-    # variable binning in areas of D and F const.
+    # segment1 with new definition for variable binning in areas of const. D, F
     DiagUp1 = np.array([2*d[i]/(deltaXX[i+1]*(deltaXX[i+1]+deltaXX[i]))
-                       for i in range(N1)])
+                       for i in range(start)])
     DiagDown1 = np.array([2*d[i]/(deltaXX[i]*(deltaXX[i+1]+deltaXX[i]))
-                          for i in range(N1)])
+                          for i in range(start)])
     MainDiag1 = np.array([-2*d[i]/(deltaXX[i+1]*deltaXX[i])
-                          for i in range(N1)])
+                          for i in range(start)])
     MainDiag1[0] = -DiagDown1[1]
     # MainDiag1[0] = -2*d[1]/(deltaXX[1]*(deltaXX[2]+deltaXX[1]))
 
     if con:
-        if np.any(np.array([d[i] != d[i+1] for i in range(N1+1)])):
+        if np.any(np.array([d[i] != d[i+1] for i in range(start+1)])):
             print('Error: D is not kept constant in segment 1!\n D = ',
-                  [d[i] for i in range(N1+1)])
+                  [d[i] for i in range(start+1)])
             sys.exit()
-        if np.any(np.array([f[i] != f[i+1] for i in range(N1+1)])):
+        if np.any(np.array([f[i] != f[i+1] for i in range(start+1)])):
             print('Error: F is not kept constant in segment 1!\n D = ',
-                  [f[i] for i in range(N1+1)])
+                  [f[i] for i in range(start+1)])
             sys.exit()
 
-    # segment2 with simple definition for
-    # constant deltaX and variable D and F
+    if end is None:
+        stop = d.size
+        d = np.append(d, d[-1])  # extending d and f for full WMatrix computation
+        f = np.append(f, f[-1])
+        # last entry of DiagUp2 and MainDiag2 is correctly computed
+    else:
+        stop = end
+
+    # segment2 with standart definition for constant deltaX and variable D and F
     DiagUp2 = np.array([(d[i]+d[i+1])/(2*(deltaXX[i])**2) *
-                        np.exp(-(f[i]-f[i+1])/2) for i in range(N1, N2)])
+                        np.exp(-(f[i]-f[i+1])/2) for i in range(start, stop)])
 
     DiagDown2 = np.array([(d[i]+d[i-1])/(2*(deltaXX[i])**2) *
-                          np.exp(-(f[i]-f[i-1])/2) for i in range(N1, N2)])
+                          np.exp(-(f[i]-f[i-1])/2) for i in range(start, stop)])
 
     MainDiag2 = np.array([-(d[i-1]+d[i])/(2*(deltaXX[i])**2) *
                           np.exp(-(f[i-1]-f[i])/2) -
                           (d[i+1]+d[i])/(2*(deltaXX[i])**2) *
-                          np.exp(-(f[i+1]-f[i])/2) for i in range(N1, N2)])
+                          np.exp(-(f[i+1]-f[i])/2) for i in range(start, stop)])
+    if end is None:
+        # reflective BC now here
+        MainDiag2[-1] = -DiagUp2[-2]
 
     if con:
         if np.any(np.array([deltaXX[i] != deltaXX[i+1]
-                            for i in range(N1, N2+1)])):
+                            for i in range(start, stop)])):
             print('Error: deltaX is not kept constant in segment 2!\n'
                   'deltaX = ',
-                  [deltaXX[i] for i in range(N1, N2+1)])
+                  [deltaXX[i] for i in range(start, stop)])
             sys.exit()
 
-    # segment3 with new definition
-    DiagUp3 = np.array([2*d[i]/(deltaXX[i+1]*(deltaXX[i+1]+deltaXX[i]))
-                       for i in range(N2, d.size)])
-    DiagDown3 = np.array([2*d[i]/(deltaXX[i]*(deltaXX[i+1]+deltaXX[i]))
-                          for i in range(N2, d.size)])
-    MainDiag3 = np.array([-2*d[i]/(deltaXX[i+1]*deltaXX[i])
-                          for i in range(N2, d.size)])
-    MainDiag3[-1] = -DiagUp3[-2]
-    # MainDiag3[-1] = -2*d[-1]/(deltaXX[-2]*(deltaXX[-2]+deltaXX[-3]))
+    if end is not None:
+        # segment3 with new definition
+        DiagUp3 = np.array([2*d[i]/(deltaXX[i+1]*(deltaXX[i+1]+deltaXX[i]))
+                           for i in range(end, d.size)])
+        DiagDown3 = np.array([2*d[i]/(deltaXX[i]*(deltaXX[i+1]+deltaXX[i]))
+                              for i in range(end, d.size)])
+        MainDiag3 = np.array([-2*d[i]/(deltaXX[i+1]*deltaXX[i])
+                              for i in range(end, d.size)])
+        MainDiag3[-1] = -DiagUp3[-2]
+        # MainDiag3[-1] = -2*d[-1]/(deltaXX[-2]*(deltaXX[-2]+deltaXX[-3]))
 
-    if con:
-        if np.any(np.array([d[i-1] != d[i] for i in range(N+11, d.size)])):
-            print('Error: D is not kept constant in segment 2!\n D = ',
-                  [d[i] for i in range(N2-1, d.size)])
-            sys.exit()
-        if np.any(np.array([f[i-1] != f[i] for i in range(N+11, d.size)])):
-            print('Error: F is not kept constant in segment 1!\n D = ',
-                  [f[i] for i in range(N2-1, d.size)])
-            sys.exit()
+        if con:
+            if np.any(np.array([d[i-1] != d[i] for i in range(end-1, d.size)])):
+                print('Error: D is not kept constant in segment 2!\n D = ',
+                      [d[i] for i in range(end-1, d.size)])
+                sys.exit()
+            if np.any(np.array([f[i-1] != f[i] for i in range(end-1, d.size)])):
+                print('Error: F is not kept constant in segment 1!\n D = ',
+                      [f[i] for i in range(end-1, d.size)])
+                sys.exit()
 
-    DiagUp = np.concatenate((DiagUp1, DiagUp2, DiagUp3))
-    DiagDown = np.concatenate((DiagDown1, DiagDown2, DiagDown3))
-    MainDiag = np.concatenate((MainDiag1, MainDiag2, MainDiag3))
+        DiagUp = np.concatenate((DiagUp1, DiagUp2, DiagUp3))
+        DiagDown = np.concatenate((DiagDown1, DiagDown2, DiagDown3))
+        MainDiag = np.concatenate((MainDiag1, MainDiag2, MainDiag3))
+
+    else:
+        DiagUp = np.concatenate((DiagUp1, DiagUp2))
+        DiagDown = np.concatenate((DiagDown1, DiagDown2))
+        MainDiag = np.concatenate((MainDiag1, MainDiag2))
 
     W = np.diag(MainDiag) + np.diag(DiagUp[:-1], 1) + np.diag(DiagDown[1:], -1)
 
@@ -148,8 +155,6 @@ def WMatrixVar(d, f, N, deltaXX, con=False):
             print('Error: Wrong implementation of BCs!\n Row1, RowN:',
                   np.sum(W, 0)[0], np.sum(W, 0)[-1])
             sys.exit()
-
-    # print(W[4:8, 4:8])
 
     return W
 
