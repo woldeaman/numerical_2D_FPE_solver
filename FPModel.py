@@ -61,7 +61,7 @@ def WMatrixVar(d, f, start, deltaXX, end=None, con=False):
     '''
     Rate matrix for variable discretization widths,
     d, f - diffusivity, free energy
-    start, end - start and end bin of segment for variable D, F
+    start, end - start and end transitions between discretizations
     if end is 'None' only two segments will be assumed
     deltaXX - discretization array (has deltaX for each bin)
     con - flag for c-conservation --> W-Matrix check
