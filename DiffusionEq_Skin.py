@@ -11,6 +11,11 @@ import inputOutput as io
 import argparse as ap
 import os
 
+D_dermis = 411  # estimate for diffusivity in subcutis
+# value from 2006, Y. Moussy, et. al, Distribution of [3H]dexamethasone in rat
+# subcutaneous tissue after delivery from osmotic pumps, Biotechnol. Prog.
+# doi:10.1021/bp060031j.
+
 
 # for printing c-profiles
 def plotConSkin(xx, cc, ccRes, tt, save=False, path=None, deltaXX=None):
@@ -98,11 +103,8 @@ def analysis(results, xx=None, cc=None, tt=None, deltaX=None, plot=False,
         # D_dermis = 67.341  # value from PNAS paper
 
     # gathering mean of F and D for best 1% of runs
-    DRes_pre = np.mean(np.array([results[indices[i]].x[:DParams]
-                                 for i in range(topPer)]), axis=0)
-    # average over D because only D in between bins is of importance
-    DRes = np.array([(DRes_pre[i] + DRes_pre[i+1])/2
-                     for i in range(DRes_pre.size-1)])
+    DRes = np.mean(np.array([results[indices[i]].x[:DParams]
+                             for i in range(topPer)]), axis=0)
     # for fixed D_dermis
     if fixD_derm:
         DRes = np.concatenate((np.mean(np.array(
@@ -114,29 +116,19 @@ def analysis(results, xx=None, cc=None, tt=None, deltaX=None, plot=False,
                                      for i in range(topPer)]), axis=0)
     FRes = FRes_notNorm - FRes_notNorm[0]
     # gathering standart deviation for top 1% of runs
-    DSTD_pre = np.std(np.array([results[indices[i]].x[:DParams]
-                                for i in range(topPer)]), axis=0)
-    # average over D because only D in between bins is of importance
-    DSTD = np.array([(DSTD_pre[i] + DSTD_pre[i+1])/2
-                     for i in range(DSTD_pre.size-1)])
+    DSTD = np.std(np.array([results[indices[i]].x[:DParams]
+                            for i in range(topPer)]), axis=0)
     # for fixed D_dermis
     if fixD_derm:
-        DSTD_pre = np.concatenate((np.std(np.array(
+        DSTD = np.concatenate((np.std(np.array(
             [results[indices[i]].x[:DParams]
              for i in range(topPer)]), axis=0),
                                np.zeros(1)))
-        # average over D because only D in between bins is of importance
-        DSTD = np.array([(DSTD_pre[i] + DSTD_pre[i+1])/2
-                         for i in range(DSTD_pre.size-1)])
 
     FSTD = np.std(np.array([results[indices[i]].x[DParams:]
                             for i in range(topPer)]), axis=0)
 
-    D_best_pre = results[indices[0]].x[:DParams]
-    # average over D because only D in between bins is of importance
-    D_best = np.array([(D_best_pre[i] + D_best_pre[i+1])/2
-                       for i in range(D_best_pre.size-1)])
-
+    D_best = results[indices[0]].x[:DParams]
     # for fixed D_dermis
     if fixD_derm:
         D_best = np.concatenate((results[indices[0]].x[:DParams],
@@ -209,10 +201,11 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
         N = cc[:, 0].size  # number of bins
 
     # pre-processing for d and f vectors
-    dPre = df[:(N+2)]  # take input values from trust region algorithm
-    # fPre = np.concatenate((np.zeros(1), df[(N+2):]))
+    # dPre = df[:(N+2)]  # take input values from trust region algorithm
+    # fix value for D in dermis
+    dPre = np.concatenate((df[:(N+1)], np.ones(1)*D_dermis))
     # completely free F
-    fPre = df[(N+2):]
+    fPre = df[(N+1):]
     # defined for keeping d and f constant in certain areas
     segments = np.concatenate((np.zeros(7), np.arange(1, N+1),
                                np.ones(15)*(N+1))).astype(int)
@@ -223,12 +216,6 @@ def resFun(df, cc, tt, deltaX=1, debug=False, verb=False):
     deltaXX = np.concatenate((np.ones(5)*deltaX[0],
                               np.ones(N+7)*deltaX[1],
                               np.ones(11)*deltaX[2]))
-    # my original values
-    # start = 8  # start of variable DF calculation
-    # end = N+12  # end of variable DF calculation
-    # roberts values
-    # start = 5  # bin at wich start of variable DF calculation
-    # end = N+9  # bin at wich end of variable DF calculation
     W = fp.WMatrixVar(d, f, N, deltaXX, con=debug)
     T = al.expm(W)
 
@@ -358,17 +345,25 @@ def main():
     X3 = (20000-(4.5*X2))/10.5  # 2cm in deeper skin layers
 
     deltaX = np.array([X1, X2, X3])
+
+    # # only analysis
+    # results = np.load('result.npy')
+    # xx = np.arange(102)
+    # analysis(np.array(results), xx=xx, cc=cc, tt=tt, deltaX=deltaX, plot=True,
+    #          per=0.1, savePath=None, fixD_derm=True, D_dermis=D_dermis)
+    # sys.exit()
+
     # --------------------------- reading profiles -------------------------- #
 
     # -------------------- starting ls-optimization ------------------------- #
     # setting bounds, D first and F second
-    # there are a total of 2N+4 fit parameters,
-    # N+2 for D (N in epidermis and one for gel and dermis)
+    # there are a total of 2N+3 fit parameters,
+    # N+1 for D (N in epidermis and one for gel and fixed in dermis)
     # and N+2 for F, now freely fitted
-    bndsDUpper = np.ones(N+2)*1000
+    bndsDUpper = np.ones(N+1)*1000
     bndsFUpper = np.ones(N+2)*60
     # bndsDLower = np.zeros(N+2)
-    bndsDLower = np.zeros(N+2)
+    bndsDLower = np.zeros(N+1)
     bndsFLower = np.ones(N+2)*40
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
@@ -378,7 +373,7 @@ def main():
     # DInit = np.random.rand(N+2, 10)
     RUNS = 1000
     DInit = np.concatenate((np.random.rand(15, RUNS),
-                            (np.random.rand(67, RUNS)*700+100)))
+                            (np.random.rand(66, RUNS)*700+100)))
     FInit = 50
 
     # trying Roberts results as initial data
@@ -405,7 +400,7 @@ def main():
     # doing analysis and plotting data
     xx = np.arange(102)
     analysis(np.array(results), xx=xx, cc=cc, tt=tt, deltaX=deltaX, plot=True,
-             per=0.1, savePath=None, fixD_derm=False, D_dermis=None)
+             per=0.1, savePath=None, fixD_derm=True, D_dermis=D_dermis)
 
 
 if __name__ == "__main__":
