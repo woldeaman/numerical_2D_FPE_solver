@@ -295,7 +295,7 @@ def main():
     (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit,
      DInit, alpha) = io.startUp()
 
-    # adding additional parameter for D and F to be determined
+    # overriding bounds for custom set of parameters
     DBound = 1000
     FBound = 20
     params = dim + 4  # number of different D and F values to fit
@@ -309,22 +309,43 @@ def main():
     FInit = np.zeros(params)
     DInit = (np.random.rand(params, Runs)*DBound)
 
+    # lenght of the different segments for computation
+    x_tot = 1500  # total length of system in µm
+    x_2 = np.max(xx)  # length of segment 2, x_2 = 150 µm
+    x_3 = 180 - x_2  # end of system is at x = 180µm, lengthx of x_3 = 30 µm
+    x_1 = x_tot - (x_2 + x_3)  # length of segment 1 x_1 = 1320 µm
+
     # defining different discretization widths
-    # discretization width in bulk and in measured segment
-    dx2 = deltaX  # in measurement segment
-    # discretize with two bins of dx2 and 3 of dx1
-    dx1 = (1350-2.5*dx2)/3.5  # in bulk solution
+    dx2 = deltaX  # in segment 2 and segment 3
+    dx1 = (x_1-2.5*dx2)/3.5  # discretization in segment x_1
+    # NOTE:
+    # discretizing segment 1 first 4 bins each at a distance of dx1
+    # and next two bins with a distance between them of dx2
     deltaXX = [dx1, dx2]
 
-    # NOTE: building c0 profile, assume c0 const. in bulk (for x < 100 µm)
+    # vectors for distance between bins dxx_dist and bin width dxx_width
+    # dxx_dist contains distance to previous bin, at first bin same dx is taken
+    dxx_dist = np.concatenate((np.ones(4)*dx1,  # used for WMatrix
+                               np.ones(2+dim+4)*dx2))
+    # this vector contains width of individual bins
+    dxx_width = np.concatenate((np.ones(3)*dx1, np.ones(1)*(dx1+dx2)/2,
+                                np.ones(2+dim+3)*dx2))  # used for concentration
+    # NOTE:
+    # dxx_dist has one element more than dxx_width because it for WMatrix
+    # computation dx at i+1 is necccessary --> needed for last bin too
+
+
+    # NOTE: building c0 profile, assume c0 const. in bulk (for x < 50 µm)
     M = cc[0, :].size  # number of profiles
     gel = 8  # number of bins for gel
     solution_dx1 = 4  # number of bins for solution with larger dx
     solution_dx2 = 13  # number of bins for solution with smaller dx
+
     # total amount of dextran (approximated from last profile)
     # TODO: check this
     # tot = (cc[-1][0]*132 + np.sum(cc[-1]) + cc[-1][-1]*3)*10
     # c_dx1 = (tot - cc[-1][0]*10*12)/(dx1*4)
+
     c_dx1 = cc[0, -1]
     c0 = np.concatenate((np.ones(solution_dx1)*c_dx1,
                          np.ones(solution_dx2)*cc[0, -1], np.zeros(gel)))
