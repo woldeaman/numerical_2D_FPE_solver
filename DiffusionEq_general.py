@@ -88,6 +88,8 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
         F = np.concatenate((np.ones(1)*F[0], F))
         D_best_pre = np.concatenate((np.ones(1)*D_best_pre[0], D_best_pre))
         F_best_pre = np.concatenate((np.ones(1)*F_best_pre[0], F_best_pre))
+        D_best = np.concatenate((np.ones(1)*D_best[0], D_best))
+        F_best = np.concatenate((np.ones(1)*F_best[0], F_best))
         DSTD = np.concatenate((np.ones(1)*DSTD[0], DSTD))
         FSTD = np.concatenate((np.ones(1)*FSTD[0], FSTD))
 
@@ -169,10 +171,11 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
     residual = np.sum(RRn**2)
 
-    d0 = np.ones(N)*70  # reference solution
-    f0 = np.ones(N)*0
-    df0 = np.append(d0, f0)
-    df = np.concatenate((D_pre, F_pre))
+    # NOTE: now doing tykhonov regularization, but with smoothing
+    d0 = np.roll(D_pre, -1)  # enforcing smoothness of solution
+    f0 = np.roll(F_pre, -1)
+    df0 = np.concatenate((d0[:-1], f0[:-1]))  # last value cannot be smoothed
+    df = np.concatenate((D_pre[:-1], F_pre[:-1]))
     regularization = np.sum((alpha*(df-df0))**2)
 
     print('\nBest solution has residuals\n|A*x-b|^2 = %f\n|x-x_0|^2 = %f' %
@@ -243,11 +246,13 @@ def resFun(df, cc, tt, deltaX=1, c0=None, verb=False, bc='reflective',
 
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
-    # NOTE/CHANGED: now doing tykhonov regularization
-    d0 = np.ones(N)*70  # suitable solution
-    f0 = np.ones(N)*0
-    df0 = np.append(d0, f0)
-    regularization = alpha*(df-df0)
+
+    # NOTE: now doing tykhonov regularization, but with smoothing
+    d0 = np.roll(d, -1)  # enforcing smoothness of solution
+    f0 = np.roll(f, -1)
+    df0 = np.concatenate((d0[:-1], f0[:-1]))  # last value cannot be smoothed
+    df_trunc = np.concatenate((d[:-1], f[:-1]))
+    regularization = alpha*(df_trunc-df0)
     RRn = np.append(RRn, regularization)  # appended residual vector
 
     # print out error estimate in form of standart deviation if wanted

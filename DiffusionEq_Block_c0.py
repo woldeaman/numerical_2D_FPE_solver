@@ -17,7 +17,7 @@ import sys
 startTime = time.time()
 
 
-def analysis(result, dfParams, dx_dist, dx_width, c0=None, xx=None, cc=None,
+def analysis(result, dfParams, dx_dist, dx_width=None, c0=None, xx=None, cc=None,
              tt=None, deltaX=None, plot=False, per=0.1, alpha=0,
              bc='reflective', savePath=None):
     '''
@@ -158,10 +158,10 @@ def analysis(result, dfParams, dx_dist, dx_width, c0=None, xx=None, cc=None,
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
     # NOTE/CHANGED: now doing tykhonov regularization, but with smoothing
     # QUESTION: think about last bin of D and F, currently smoothed to first bin
-    df = np.concatenate((D_pre, F_pre))
+    df = np.concatenate((D_pre[:-1], F_pre[:-1]))
     d0 = np.roll(D_pre, -1)
     f0 = np.roll(F_pre, -1)
-    df0 = np.concatenate((d0, f0))
+    df0 = np.concatenate((d0[:-1], f0[:-1]))
 
     regularization = np.sum((alpha*(df-df0))**2)
     residual = np.sum(RRn**2)
@@ -241,12 +241,13 @@ def resFun(df, cc, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None, c0=None,
 
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
-    # NOTE/CHANGED: now doing tykhonov regularization, but with smoothing
-    # QUESTION: think about last bin of D and F, currently smoothed to first bin
+
+    # NOTE: now doing tykhonov regularization, but with smoothing
     d0 = np.roll(dPre, -1)  # enforcing smoothness of solution
     f0 = np.roll(fPre, -1)
-    df0 = np.concatenate((d0, f0))
-    regularization = alpha*(df-df0)
+    df0 = np.concatenate((d0[:-1], f0[:-1]))  # last value cannot be smoothed
+    df_trunc = np.concatenate((dPre[:-1], fPre[:-1]))
+    regularization = alpha*(df_trunc-df0)
     RRn = np.append(RRn, regularization)  # appended residual vector
 
     # print out error estimate in form of standart deviation if wanted
@@ -367,7 +368,7 @@ def main():
             print('\n\nScript has been terminated.\nData will now be analyzed...')
             break
 
-    analysis(np.array(res), bc=bc_mode, c0=c0, xx=xx, cc=cc, tt=tt,
+    analysis(np.array(results), bc=bc_mode, c0=c0, xx=xx, cc=cc, tt=tt,
              deltaX=deltaXX, alpha=alpha, plot=True, per=0.1, dx_dist=dxx_dist,
              dfParams=params)
 
