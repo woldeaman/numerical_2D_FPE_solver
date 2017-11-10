@@ -160,7 +160,8 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
         ps.plotDF(xx_ext, D, F, D_STD=DSTD, F_STD=FSTD, save=True,
                   style='.--', path=savePath)
         # plotting best D and F
-        ps.plotDF(xx_ext, D_best, F_best, save=True, style='.--', path=savePath)
+        ps.plotDF(xx_ext, D_best, F_best, save=True, style='.--', path=savePath,
+                  name='bestDF')
 
     # ---------------------- regularization ------------------------------ #
     # NOTE: this is for analysis of parameter for L2 regularization
