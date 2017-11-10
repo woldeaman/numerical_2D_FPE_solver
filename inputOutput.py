@@ -209,7 +209,7 @@ def preProcessing(xx, cc, order=3, window=None, bins=100):
     if window is None:
         # standart windows size is half of profile size
         window = int(profiles[:, 0].size/2)
-        if window % 2 == 0:  # only odd values for winow size work
+        if window % 2 == 0:  # only odd values for window size work
             window = window + 1
 
     filtered = np.array([sg.savgol_filter(

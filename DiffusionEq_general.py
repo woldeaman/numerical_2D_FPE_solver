@@ -159,6 +159,8 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
         # plotting averaged D and F
         ps.plotDF(xx_ext, D, F, D_STD=DSTD, F_STD=FSTD, save=True,
                   style='.--', path=savePath)
+        # plotting best D and F
+        ps.plotDF(xx_ext, D_best, F_best, save=True, style='.--', path=savePath)
 
     # ---------------------- regularization ------------------------------ #
     # NOTE: this is for analysis of parameter for L2 regularization
