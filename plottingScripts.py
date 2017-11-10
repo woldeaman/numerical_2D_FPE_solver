@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
-import os
 import sys
 
 
