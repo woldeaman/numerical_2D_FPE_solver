@@ -122,7 +122,7 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
 
     # computing concentration profiles for best D and F
     ccRes = np.array([fp.calcC(cc[0], tt[j], W=W, bc=bc)
-                      for j in range(1, M)]).T
+                      for j in range(M)]).T
     # -------------------------- loading results --------------------------- #
 
     # --------------------------- saving data ------------------------------- #
