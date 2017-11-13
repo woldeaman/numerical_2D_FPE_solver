@@ -179,7 +179,7 @@ def analysis(result, c0=None, xx=None, cc=None, tt=None, plot=False, per=0.1,
     f0 = np.roll(F_pre, -1)
     df0 = np.concatenate((d0[:-1], f0[:-1]))  # last value cannot be smoothed
     df = np.concatenate((D_pre[:-1], F_pre[:-1]))
-    regularization = np.sum((alpha*(df-df0))**2)
+    regularization = np.sum((df-df0)**2)
 
     print('\nBest solution has residuals\n|A*x-b|^2 = %f\n|x-x_0|^2 = %f' %
           (residual, regularization))
