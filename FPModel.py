@@ -45,6 +45,26 @@ def WMatrixGrima(d, f, deltaX=1, bc='reflective'):
         sys.exit()
 
 
+def stepDF(df, t, xx):
+    # TODO: check if this really works with nonLSQ
+    # t seems to be discrete --> no Jacobian evaluatable --> iterate over bins rather
+    '''
+    Function computes step-function profile for D and F
+    df = [df1, df2] - list containing diffusivity or free energy values
+    t - location of jump
+    xx - position at wich D or F profile is computed
+    '''
+
+    DF = []
+    for x in xx:
+        if x < t:
+            DF.append(df[0])
+        else:
+            DF.append(df[1])
+
+    return DF
+
+
 def sigmoidalDF(df, t, d, x):
     '''
     Function computes sigmoidal D or F profile based on errorfunction.
@@ -55,6 +75,121 @@ def sigmoidalDF(df, t, d, x):
     '''
     DF = 0.5*((df[0]+df[1]) + (df[1]-df[0])*sp.erf((x-t)/(np.sqrt(2)*d)))
     return DF
+
+
+def WMatrixVarESR(d, f, deltaXX, con=False):
+    '''
+    Rate matrix for variable discretization widths of ESR data
+    '''
+
+    # segment1 with new definition for variable binning in areas of const. D, F
+    DiagUp1 = np.array([2*d[i]/(deltaXX[i+1]*(deltaXX[i+1]+deltaXX[i]))
+                       for i in range(4)])
+    DiagDown1 = np.array([2*d[i]/(deltaXX[i]*(deltaXX[i+1]+deltaXX[i]))
+                          for i in range(4)])
+    MainDiag1 = np.array([-2*d[i]/(deltaXX[i+1]*deltaXX[i])
+                          for i in range(4)])
+    # for reflective BCs
+    MainDiag1[0] = -DiagDown1[1]
+
+    if con:
+        if np.any(np.array([d[i] != d[i+1] for i in range(4)])):
+            print('Error: D is not kept constant in segment 1!\n D = ',
+                  [d[i] for i in range(4)])
+            sys.exit()
+        if np.any(np.array([f[i] != f[i+1] for i in range(4)])):
+            print('Error: F is not kept constant in segment 1!\n F = ',
+                  [f[i] for i in range(4)])
+            sys.exit()
+
+    # segment2 with standart definition for constant deltaX and variable D and F
+    DiagUp2 = np.array([(d[i]+d[i+1])/(2*(deltaXX[i])**2) *
+                        np.exp(-(f[i]-f[i+1])/2) for i in range(4, 6)])
+
+    DiagDown2 = np.array([(d[i]+d[i-1])/(2*(deltaXX[i])**2) *
+                          np.exp(-(f[i]-f[i-1])/2) for i in range(4, 6)])
+
+    MainDiag2 = np.array([-(d[i-1]+d[i])/(2*(deltaXX[i])**2) *
+                          np.exp(-(f[i-1]-f[i])/2) -
+                          (d[i+1]+d[i])/(2*(deltaXX[i])**2) *
+                          np.exp(-(f[i+1]-f[i])/2) for i in range(4, 6)])
+    if con:
+        if np.any(np.array([deltaXX[i] != deltaXX[i+1]
+                            for i in range(4-1, 6)])):
+            print('Error: deltaX is not kept constant in segment 2!\n'
+                  'deltaX = ',
+                  [deltaXX[i] for i in range(4-1, 6+1)])
+            sys.exit()
+
+    # segment3 with new definition for variable binning in areas of const. D, F
+    DiagUp3 = np.array([2*d[i]/(deltaXX[i+1]*(deltaXX[i+1]+deltaXX[i]))
+                        for i in range(7, 11)])
+    DiagDown3 = np.array([2*d[i]/(deltaXX[i]*(deltaXX[i+1]+deltaXX[i]))
+                          for i in range(7, 11)])
+    MainDiag3 = np.array([-2*d[i]/(deltaXX[i+1]*deltaXX[i])
+                          for i in range(7, 11)])
+    if con:
+        if np.any(np.array([d[i] != d[i+1] for i in range(7, 11)])):
+            print('Error: D is not kept constant in segment 3!\n D = ',
+                  [d[i] for i in range(7, 11+1)])
+            sys.exit()
+        if np.any(np.array([f[i] != f[i+1] for i in range(7, 11)])):
+            print('Error: F is not kept constant in segment 3!\n F = ',
+                  [f[i] for i in range(7, 11+1)])
+            sys.exit()
+
+    # segment4 again with standart definition for constant deltaX and variable D and F
+    DiagUp4 = np.array([(d[i]+d[i+1])/(2*(deltaXX[i])**2) *
+                        np.exp(-(f[i]-f[i+1])/2) for i in range(11, 14)])
+
+    DiagDown4 = np.array([(d[i]+d[i-1])/(2*(deltaXX[i])**2) *
+                          np.exp(-(f[i]-f[i-1])/2) for i in range(11, 14)])
+
+    MainDiag4 = np.array([-(d[i-1]+d[i])/(2*(deltaXX[i])**2) *
+                          np.exp(-(f[i-1]-f[i])/2) -
+                          (d[i+1]+d[i])/(2*(deltaXX[i])**2) *
+                          np.exp(-(f[i+1]-f[i])/2) for i in range(11, 14)])
+    if con:
+        if np.any(np.array([deltaXX[i] != deltaXX[i+1]
+                            for i in range(11, 14)])):
+            print('Error: deltaX is not kept constant in segment 4!\n'
+                  'deltaX = ',
+                  [deltaXX[i] for i in range(11, 14)])
+            sys.exit()
+
+    # segment5 with new definition for variable binning in areas of const. D, F
+    DiagUp5 = np.array([2*d[i]/(deltaXX[i+1]*(deltaXX[i+1]+deltaXX[i]))
+                        for i in range(14, d.size)])
+    DiagDown5 = np.array([2*d[i]/(deltaXX[i]*(deltaXX[i+1]+deltaXX[i]))
+                          for i in range(14, d.size)])
+    MainDiag5 = np.array([-2*d[i]/(deltaXX[i+1]*deltaXX[i])
+                          for i in range(14, d.size)])
+    if con:
+        if np.any(np.array([d[i+1] != d[i] for i in range(14, d.size-1)])):
+            print('Error: D is not kept constant in segment 5!\n D = ',
+                  [d[i] for i in range(14, d.size)])
+            sys.exit()
+        if np.any(np.array([f[i+1] != f[i] for i in range(14, d.size-1)])):
+            print('Error: F is not kept constant in segment 5!\n F = ',
+                  [f[i] for i in range(14, d.size)])
+            sys.exit()
+
+    # for reflective BCs
+    MainDiag5[-1] = -DiagUp5[-2]
+
+    DiagUp = np.concatenate((DiagUp1, DiagUp2, DiagUp3, DiagUp4, DiagUp5))
+    DiagDown = np.concatenate((DiagDown1, DiagDown2, DiagDown3, DiagDown4, DiagDown5))
+    MainDiag = np.concatenate((MainDiag1, MainDiag2, MainDiag3, MainDiag4, MainDiag5))
+
+    W = np.diag(MainDiag) + np.diag(DiagUp[:-1], 1) + np.diag(DiagDown[1:], -1)
+
+    if con:
+        if(np.sum(W, 0)[0] != 0 or np.sum(W, 0)[-1] != 0):
+            print('Error: Wrong implementation of BCs!\n Row1, RowN:',
+                  np.sum(W, 0)[0], np.sum(W, 0)[-1])
+            sys.exit()
+
+    return W
 
 
 def WMatrixVar(d, f, start, deltaXX, end=None, con=False):
@@ -83,7 +218,7 @@ def WMatrixVar(d, f, start, deltaXX, end=None, con=False):
                   [d[i] for i in range(start+1)])
             sys.exit()
         if np.any(np.array([f[i] != f[i+1] for i in range(start+1)])):
-            print('Error: F is not kept constant in segment 1!\n D = ',
+            print('Error: F is not kept constant in segment 1!\n F = ',
                   [f[i] for i in range(start+1)])
             sys.exit()
 
@@ -131,11 +266,11 @@ def WMatrixVar(d, f, start, deltaXX, end=None, con=False):
 
         if con:
             if np.any(np.array([d[i-1] != d[i] for i in range(end-1, d.size)])):
-                print('Error: D is not kept constant in segment 2!\n D = ',
+                print('Error: D is not kept constant in segment 3!\n D = ',
                       [d[i] for i in range(end-1, d.size)])
                 sys.exit()
             if np.any(np.array([f[i-1] != f[i] for i in range(end-1, d.size)])):
-                print('Error: F is not kept constant in segment 1!\n D = ',
+                print('Error: F is not kept constant in segment 3!\n F = ',
                       [f[i] for i in range(end-1, d.size)])
                 sys.exit()
 
