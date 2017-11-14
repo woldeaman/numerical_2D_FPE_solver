@@ -297,20 +297,23 @@ def main():
      DInit, alpha) = io.startUp()
 
     # discretization widths in stratum corneum
-    dx_SC = array([0.24398598,  2.01909017,  1.83566884,  3.89236138,  5.48539896, 3.407229])
-    # lenght of the different segments for computation
+    dx_SC = array([0.24398598,  2.01909017,  1.83566884,  3.89236138,
+                   5.48539896, 3.407229])
+    # length of the different segments for computation
     x_tot = 600  # total length of system in µm
     x_1 = 200  # length of segment 1 - gel, x_1 = 200µm
-    x_2 = np.sum(dx_SC)  # length of segment 2 - SC
-    x_3 = 400 - x_2  # length of last segment 3
+    x_2 = np.sum(dx_SC)  # length of segment 2 - SC, from discretization vector
+    x_3 = 400 - x_2  # length of last segment 3, total sample x_2+x_3 = 400 µm
 
-    # defining different discretization widths
-    dx2 = deltaX  # in segment 2 and segment 3
-    dx1 = (x_1-2.5*dx2)/3.5  # discretization in segment x_1
-     # NOTE:
-     # discretizing segment 1 first 4 bins each at a distance of dx1
-     # and next two bins with a distance between them of dx2
-     deltaXX = [dx1, dx2]
+    # defining different discretization widths, in segment_2 given by dx_SC
+    dx1 = (x_1-2.5*dx_SC[0])/3.5  # discretization width in segment x_1
+    # NOTE: discretizing segment 1 first 4 bins each at a distance of dx1
+    # and next two bins with a distance between them of dx_SC[0]
+    # same for segment 3
+    dx3 = (x_3-2.5*dx_SC[-1])/3.5  # discretization width in segment x_3
+    # NOTE: discretizing segment 1 first 4 bins each at a distance of dx1
+    # and next two bins with a distance between them of dx_SC[0]
+    deltaXX = [dx1, dx2]
 
      # vectors for distance between bins dxx_dist and bin width dxx_width
      # dxx_dist contains distance to previous bin, at first bin same dx is taken
