@@ -359,6 +359,7 @@ def main():
     # dxx_dist contains distance to previous bin, at first bin same dx is taken
     dxx_dist = np.concatenate((np.ones(4)*dx1,  # used for WMatrix
                                np.ones(2+dim+4)*dx2))
+    # append one dx to the end, because of W-Matrix computation (needs dx[i+1])
     # this vector contains width of individual bins
     dxx_width = np.concatenate((np.ones(3)*dx1, np.ones(1)*(dx1+dx2)/2,
                                 np.ones(2+dim+3)*dx2))  # used for concentration
