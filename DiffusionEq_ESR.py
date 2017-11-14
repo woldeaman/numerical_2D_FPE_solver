@@ -71,9 +71,9 @@ def analysis(result, dx_dist, c0=None, xx=None, cc=None, tt=None, plot=False,
     F_best = F_best_pre - F_best_pre[0]
 
     # computing full DF profile
-    segments = np.concatenate((np.zeros(6), np.ones(N), np.ones(6)*2)).astype(int)
+    segments = np.concatenate((np.zeros(6), np.ones(N-2), np.ones(6)*2)).astype(int)
     d, f = fp.computeDF(D_best, F_best, shape=segments)
-    W = fp.WMatrixVar(d, f,  start=4, end=N+2, deltaXX=dx_dist, con=True)
+    W = fp.WMatrixVarESR(d, f, deltaXX=dx_dist, con=True)
 
     # computing concentration profiles for best D and F
     ccRes = np.array([fp.calcC(cc[:, 0], tt[j], W=W) for j in range(tt.size)]).T
@@ -146,23 +146,24 @@ def resFun(df, cc, tt, deltaX=1, dx_dist=None, dx_width=None,
     dPre = df[:3]
     fPre = df[3:]  # letting F completely free
 
-    segments = np.concatenate((np.zeros(6), np.ones(N), np.ones(6)*2)).astype(int)
+    segments = np.concatenate((np.zeros(6), np.ones(6), np.ones(6)*2)).astype(int)
     d, f = fp.computeDF(dPre, fPre, shape=segments)
 
-    W = fp.WMatrixVar(d, f,  start=4, end=N+2, deltaXX=dx_dist, con=True)
+    W = fp.WMatrixVarESR(d, f, deltaXX=dx_dist, con=True)
+    # QUESTION: this matrix seems to be highly non-conservative, due to
+    # the extremely different values for the dx in the SC-segment!
+    # --> what can we do about this?
 
     # testing conservation of concentration for reflective boundaries
-    # NOTE: Column sum does not vanish anymore for variable binning, but equally
-    # large positive and negative terms appear at binning transition --> total sum zeros
     if abs(np.sum((np.sum(W, 0)))) > 0.01:
-        print("WMatrix total sum does not vanish!\nMax is:",
-              np.max(np.sum(W, 0)), '\nFor each column:\n', np.sum(W, 0))
+        print("WMatrix total sum does not vanish!\nMax value of column sum is:",
+              np.max(abs(np.sum(W, 0))), '\nFor each column:\n', np.sum(W, 0))
         sys.exit()
 
     # testing conservation of concentration
-    con = np.sum(cc[0]*dx_width)
+    con = np.sum(cc[:, 0]*dx_width)
     # compute profiles from c0 and do the same conservation check
-    ccComp = [fp.calcC(cc[0], t=tt[i], W=W) for i in range(M)]
+    ccComp = [fp.calcC(cc[:, 0], t=tt[i], W=W) for i in range(M)]
 
     if np.any(np.array([abs(np.sum(ccComp[i]*dx_width)-con)
                         for i in range(M)]) > 0.01*con):
@@ -240,8 +241,8 @@ def main():
     dx_SC = np.array([0.24398598,  2.01909017,  1.83566884,  3.89236138,
                       5.48539896, 3.407229])
     # from this: get distance between bins
-    dx_SC_dist = np.array([(dx_SC[i]+dx_SC[i+1])/2 for i in range(dx_SC.size-1)])
-    dx_SC_dist = np.append(dx_SC_dist[0:1], dx_SC_dist)  # first bin has same dx
+    dx_SC_dist = np.array([(dx_SC[i]+dx_SC[i-1])/2 for i in range(1, dx_SC.size)])
+    dx_SC_dist = np.append(dx_SC[0:1], dx_SC_dist)  # first bin has same dx
 
     # length of the different segments for computation
     x_1 = 200  # length of segment 1 - gel, x_1 = 200µm
@@ -249,7 +250,7 @@ def main():
     x_3 = 400 - x_2  # length of last segment 3, total sample x_2+x_3 = 400 µm
 
     # defining different discretization widths, in segment_2 given by dx_SC
-    dx1 = (x_1-2.5*dx_SC_dist[0])/3.5  # discretization width in segment x_1
+    dx1 = (x_1-3.5*dx_SC_dist[0])/2.5  # discretization width in segment x_1
     # NOTE: discretizing segment 1 first 4 bins each at a distance of dx1
     # and next 2 bins with a distance between them of dx_SC[0]
     # same for segment 3
@@ -259,14 +260,14 @@ def main():
 
     # vectors for distance between bins dxx_dist and bin width dxx_width
     # dxx_dist contains distance to previous bin, at first bin same dx is taken
-    dxx_dist = np.concatenate((np.ones(4)*dx1,  # used for WMatrix
-                               np.ones(2)*dx_SC_dist[0], dx_SC_dist,
+    dxx_dist = np.concatenate((np.ones(3)*dx1,  # used for WMatrix
+                               np.ones(3)*dx_SC_dist[0], dx_SC_dist,
                                np.ones(3)*dx_SC_dist[-1], np.ones(4)*dx3))
     # append one dx to the end, because of W-Matrix computation (needs dx[i+1])
     # this vector contains width of individual bins
-    dxx_width = np.concatenate((np.ones(3)*dx1,  # used for concentration
+    dxx_width = np.concatenate((np.ones(2)*dx1,  # used for concentration
                                 np.ones(1)*(dx1+dx_SC[0])/2,
-                                np.ones(2)*dx_SC[0],
+                                np.ones(3)*dx_SC[0],
                                 dx_SC, np.ones(2)*dx_SC[-1],
                                 np.ones(1)*(dx3+dx_SC[-1])/2, np.ones(3)*dx3))
 
