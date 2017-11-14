@@ -308,12 +308,12 @@ def main():
     # defining different discretization widths, in segment_2 given by dx_SC
     dx1 = (x_1-2.5*dx_SC[0])/3.5  # discretization width in segment x_1
     # NOTE: discretizing segment 1 first 4 bins each at a distance of dx1
-    # and next two bins with a distance between them of dx_SC[0]
+    # and next 2 bins with a distance between them of dx_SC[0]
     # same for segment 3
     dx3 = (x_3-2.5*dx_SC[-1])/3.5  # discretization width in segment x_3
-    # NOTE: discretizing segment 1 first 4 bins each at a distance of dx1
-    # and next two bins with a distance between them of dx_SC[0]
-    deltaXX = [dx1, dx2]
+    # NOTE: discretizing segment 3 first 3 bins each at a distance of dx_SC[-1]
+    # and next 3 bins with a distance between them of dx3
+    deltaXX = [dx1, dx_SC, dx3]
 
      # vectors for distance between bins dxx_dist and bin width dxx_width
      # dxx_dist contains distance to previous bin, at first bin same dx is taken
