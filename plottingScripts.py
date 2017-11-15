@@ -184,7 +184,7 @@ def plotConTrans(xx, cc, ccRes, c0, tt, TransIndex, layerD, save=False,
 
 # for printing c-profiles
 def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
-                deltaXX=None):
+                deltaXX=None, start=6, end=-3, name='profiles'):
 
     M = len(cc)  # number of profiles
     N = ccRes[0, :].size  # number of bins
@@ -211,21 +211,21 @@ def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
         if j == 0:
             l1, = plt.plot(xx, cc[j], '--', color=colors[j])
         else:
-            l1, = plt.plot(xx[6:-3], cc[j], '--', color=colors[j])
+            l1, = plt.plot(xx[start:end], cc[j], '--', color=colors[j])
 
         # plot computed only for t > 0, otherwise not computed
+        l1s.append([l1])
         if j > 0:
-            l1s.append([l1])
             # concatenated to include constanc c0 boundary condition
             l2, = plt.plot(xx, ccRes[:, j], '-', color=colors[j])
             l2s.append([l2])
     # plotting two legends, for color and linestyle
     legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=locs[0])
     plt.legend([l[0] for l in l1s], ["%d min" % (tt[i]/60)
-                                     for i in range(tt.size)], loc=3)
+                                     for i in range(tt.size)], loc=locs[1])
     plt.gca().add_artist(legend1)
 
     if save:
-        plt.savefig(path+'profiles.pdf')
+        plt.savefig(path+'%s.pdf' % name, bbox_inches='tight')
     else:
         plt.show()

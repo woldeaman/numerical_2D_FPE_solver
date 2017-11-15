@@ -237,6 +237,19 @@ def main():
     (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit,
      DInit, alpha) = io.startUp()
 
+    # overriding bounds for custom set of parameters
+    DBound = 1000
+    FBound = 20
+    params = 3  # number of different D and F values to fit
+    bndsDUpper = np.ones(params)*DBound
+    bndsFUpper = np.ones(params)*FBound
+    bndsDLower = np.zeros(params)
+    bndsFLower = np.ones(params)*(-FBound)
+    FInit = np.zeros(params)
+    DInit = (np.random.rand(params, Runs)*DBound)
+    bnds = (np.concatenate((bndsDLower, bndsFLower)),
+            np.concatenate((bndsDUpper, bndsFUpper)))
+
     # discretization widths in stratum corneum
     dx_SC = np.array([0.24398598,  2.01909017,  1.83566884,  3.89236138,
                       5.48539896, 3.407229])
@@ -289,7 +302,7 @@ def main():
         print('\nNow at run %i out of %i...\n' % (i+1, Runs))
         try:
             results.append(optimization(DRange=DInit[:, i],
-                                        FRange=FInit*np.ones(dim),
+                                        FRange=FInit,
                                         bnds=bnds, cc=cc, tt=tt,
                                         dx_dist=dxx_dist, dx_width=dxx_width,
                                         deltaX=deltaX,
