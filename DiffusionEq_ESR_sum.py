@@ -139,20 +139,16 @@ def resFun(df, cc, tt, deltaX=1, dx_dist=None, dx_width=None,
     regularization parameter: alpha
     '''
 
-    M = cc[0, :].size  # number of concentration profiles
-    N = cc[:, 0].size  # number of bins
+    M = len(cc)  # number of concentration profiles
 
     # 3 parameters to be optimized for D,F in gel, SC, and sub-SC
     dPre = df[:3]
     fPre = df[3:]  # letting F completely free
 
-    segments = np.concatenate((np.zeros(6), np.ones(6), np.ones(6)*2)).astype(int)
+    segments = np.concatenate((np.zeros(6), np.ones(168), np.ones(6)*2)).astype(int)
     d, f = fp.computeDF(dPre, fPre, shape=segments)
 
-    W = fp.WMatrixVarESR(d, f, deltaXX=dx_dist, con=True)
-    # QUESTION: this matrix seems to be highly non-conservative, due to
-    # the extremely different values for the dx in the SC-segment!
-    # --> what can we do about this?
+    W = fp.WMatrixVar(d, f, deltaXX=dx_dist, start=4, end=176, con=True)
 
     # testing conservation of concentration for reflective boundaries
     if abs(np.sum((np.sum(W, 0)))) > 0.01:
@@ -161,9 +157,9 @@ def resFun(df, cc, tt, deltaX=1, dx_dist=None, dx_width=None,
         sys.exit()
 
     # testing conservation of concentration
-    con = np.sum(cc[:, 0]*dx_width)
+    con = np.sum(cc[0]*dx_width)
     # compute profiles from c0 and do the same conservation check
-    ccComp = [fp.calcC(cc[:, 0], t=tt[i], W=W) for i in range(M)]
+    ccComp = [fp.calcC(cc[0], t=tt[i], W=W) for i in range(M)]
 
     if np.any(np.array([abs(np.sum(ccComp[i]*dx_width)-con)
                         for i in range(M)]) > 0.01*con):
@@ -178,30 +174,18 @@ def resFun(df, cc, tt, deltaX=1, dx_dist=None, dx_width=None,
         print('WMatrix 2Sum:\n', np.sum(np.sum(W, 0)))
         sys.exit()
 
-    # computing residual vector
-    n = M-1  # number of combinations for different c-profiles
-    RR = np.zeros((n, N))
-
-    k = 0
+    # computing residual vector, summing up parts of full profile
     for j in range(1, M):
-        RR[k, :] = cc[:, j] - fp.calcC(cc[:, 0], (tt[j] - tt[0]), W=W)
-        k += 1
+        R1 = cc[0] - np.sum(ccComp[j][:6])
+        R2 = cc[1] - np.sum(ccComp[j][6:8])
+        R3 = cc[2] - np.sum(ccComp[j][8:28])
+        R4 = cc[3] - np.sum(ccComp[j][28:46])
+        R5 = cc[4] - np.sum(ccComp[j][46:85])
+        R6 = cc[5] - np.sum(ccComp[j][85:140])
+        R7 = cc[6] - np.sum(ccComp[j][140:174])
+        R8 = cc[7] - np.sum(ccComp[j][174:])
 
-    # calculating vector of residuals
-    RRn = RR.reshape(RR.size)  # residual vector contains all deviations
-
-    # # NOTE: now doing tykhonov regularization, but with smoothing
-    # d0 = np.roll(d, -1)  # enforcing smoothness of solution
-    # f0 = np.roll(f, -1)
-    # df0 = np.concatenate((d0[:-1], f0[:-1]))  # last value cannot be smoothed
-    # df_trunc = np.concatenate((d[:-1], f[:-1]))
-    # regularization = alpha*(df_trunc-df0)
-    # RRn = np.append(RRn, regularization)  # appended residual vector
-
-    # print out error estimate in form of standart deviation if wanted
-    if (verb):
-        E = np.sqrt(np.sum(RRn**2)/(N*n))  # normalized version
-        print(E)
+    RRn = np.array([R1, R2, R3, R4, R5, R6, R7, R8])
 
     return RRn
 
@@ -233,58 +217,48 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, dx_dist=None,
 
 
 def main():
+    # NOTE: making own discretization and them comparing summed values
+
     # reading input and setting up analysis
     (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit,
      DInit, alpha) = io.startUp()
 
-    # overriding bounds for custom set of parameters
-    DBound = 1000
-    FBound = 20
-    params = 3  # number of different D and F values to fit
-    bndsDUpper = np.ones(params)*DBound
-    bndsFUpper = np.ones(params)*FBound
-    bndsDLower = np.zeros(params)
-    bndsFLower = np.ones(params)*(-FBound)
-    FInit = np.zeros(params)
-    DInit = (np.random.rand(params, Runs)*DBound)
-    bnds = (np.concatenate((bndsDLower, bndsFLower)),
-            np.concatenate((bndsDUpper, bndsFUpper)))
-
-    # discretization widths in stratum corneum
+    # # discretization widths in stratum corneum
     dx_SC = np.array([0.24398598,  2.01909017,  1.83566884,  3.89236138,
                       5.48539896, 3.407229])
     # from this: get distance between bins
-    dx_SC_dist = np.array([(dx_SC[i]+dx_SC[i-1])/2 for i in range(1, dx_SC.size)])
-    dx_SC_dist = np.append(dx_SC[0:1], dx_SC_dist)  # first bin has same dx
+    # dx_SC_dist = np.array([(dx_SC[i]+dx_SC[i-1])/2 for i in range(1, dx_SC.size)])
+    # dx_SC_dist = np.append(dx_SC[0:1], dx_SC_dist)  # first bin has same dx
 
     # length of the different segments for computation
     x_1 = 200  # length of segment 1 - gel, x_1 = 200µm
     x_2 = np.sum(dx_SC)  # length of segment 2 - SC, from discretization vector
     x_3 = 400 - x_2  # length of last segment 3, total sample x_2+x_3 = 400 µm
 
+    dx2 = 0.1  # NOTE: discretization in SC segment 2, now constant
     # defining different discretization widths, in segment_2 given by dx_SC
-    dx1 = (x_1-3.5*dx_SC_dist[0])/2.5  # discretization width in segment x_1
-    # NOTE: discretizing segment 1 first 4 bins each at a distance of dx1
-    # and next 2 bins with a distance between them of dx_SC[0]
+    dx1 = (x_1-3.5*dx2)/2.5  # discretization width in segment x_1
     # same for segment 3
-    dx3 = (x_3-2.5*dx_SC_dist[-1])/3.5  # discretization width in segment x_3
-    # NOTE: discretizing segment 3 first 3 bins each at a distance of dx_SC[-1]
-    # and next 3 bins with a distance between them of dx3
+    dx3 = (x_3-2.5*dx2)/3.5  # discretization width in segment x_3
 
     # vectors for distance between bins dxx_dist and bin width dxx_width
-    # dxx_dist contains distance to previous bin, at first bin same dx is taken
     dxx_dist = np.concatenate((np.ones(3)*dx1,  # used for WMatrix
-                               np.ones(3)*dx_SC_dist[0], dx_SC_dist,
-                               np.ones(3)*dx_SC_dist[-1], np.ones(4)*dx3))
+                               np.ones(3)*dx2, np.ones(168)*dx2,
+                               np.ones(3)*dx2, np.ones(4)*dx3))
     # append one dx to the end, because of W-Matrix computation (needs dx[i+1])
     # this vector contains width of individual bins
     dxx_width = np.concatenate((np.ones(2)*dx1,  # used for concentration
-                                np.ones(1)*(dx1+dx_SC[0])/2,
-                                np.ones(3)*dx_SC[0],
-                                dx_SC, np.ones(2)*dx_SC[-1],
-                                np.ones(1)*(dx3+dx_SC[-1])/2, np.ones(3)*dx3))
+                                np.ones(1)*(dx1+dx2)/2,
+                                np.ones(3)*dx2, np.ones(168)*dx2,
+                                np.ones(2)*dx2,
+                                np.ones(1)*(dx3+dx2)/2, np.ones(3)*dx3))
 
     xx = np.arange(dxx_width.size)  # custom x-vector for plotting
+    # NOTE: adding c0 profile here (in dimensions used for discretization)
+    cc0 = np.concatenate((np.ones(6)*11.42, np.zeros(168+6)))
+    cc = [cc0, cc]
+    tt = np.concatenate((np.zeros(1), tt))
+
     # ---------------- option for analysis only --------------------------- #
     if ana:
         print('\nDoing analysis only.')
@@ -302,7 +276,7 @@ def main():
         print('\nNow at run %i out of %i...\n' % (i+1, Runs))
         try:
             results.append(optimization(DRange=DInit[:, i],
-                                        FRange=FInit,
+                                        FRange=FInit*np.ones(dim),
                                         bnds=bnds, cc=cc, tt=tt,
                                         dx_dist=dxx_dist, dx_width=dxx_width,
                                         deltaX=deltaX,

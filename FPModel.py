@@ -46,8 +46,6 @@ def WMatrixGrima(d, f, deltaX=1, bc='reflective'):
 
 
 def stepDF(df, t, xx):
-    # TODO: check if this really works with nonLSQ
-    # t seems to be discrete --> no Jacobian evaluatable --> iterate over bins rather
     '''
     Function computes step-function profile for D and F
     df = [df1, df2] - list containing diffusivity or free energy values
@@ -62,7 +60,7 @@ def stepDF(df, t, xx):
         else:
             DF.append(df[1])
 
-    return DF
+    return np.array(DF)
 
 
 def sigmoidalDF(df, t, d, x):
@@ -123,55 +121,55 @@ def WMatrixVarESR(d, f, deltaXX, con=False):
 
     # segment3 with new definition for variable binning in areas of const. D, F
     DiagUp3 = np.array([2*d[i]/(deltaXX[i+1]*(deltaXX[i+1]+deltaXX[i]))
-                        for i in range(7, 11)])
+                        for i in range(7, 172)])
     DiagDown3 = np.array([2*d[i]/(deltaXX[i]*(deltaXX[i+1]+deltaXX[i]))
-                          for i in range(7, 11)])
+                          for i in range(7, 172)])
     MainDiag3 = np.array([-2*d[i]/(deltaXX[i+1]*deltaXX[i])
-                          for i in range(7, 11)])
+                          for i in range(7, 172)])
     if con:
-        if np.any(np.array([d[i] != d[i+1] for i in range(7, 11)])):
+        if np.any(np.array([d[i] != d[i+1] for i in range(7, 172)])):
             print('Error: D is not kept constant in segment 3!\n D = ',
-                  [d[i] for i in range(7, 11+1)])
+                  [d[i] for i in range(7, 172+1)])
             sys.exit()
-        if np.any(np.array([f[i] != f[i+1] for i in range(7, 11)])):
+        if np.any(np.array([f[i] != f[i+1] for i in range(7, 172)])):
             print('Error: F is not kept constant in segment 3!\n F = ',
-                  [f[i] for i in range(7, 11+1)])
+                  [f[i] for i in range(7, 172+1)])
             sys.exit()
 
     # segment4 again with standart definition for constant deltaX and variable D and F
     DiagUp4 = np.array([(d[i]+d[i+1])/(2*(deltaXX[i])**2) *
-                        np.exp(-(f[i]-f[i+1])/2) for i in range(11, 14)])
+                        np.exp(-(f[i]-f[i+1])/2) for i in range(172, 175)])
 
     DiagDown4 = np.array([(d[i]+d[i-1])/(2*(deltaXX[i])**2) *
-                          np.exp(-(f[i]-f[i-1])/2) for i in range(11, 14)])
+                          np.exp(-(f[i]-f[i-1])/2) for i in range(172, 175)])
 
     MainDiag4 = np.array([-(d[i-1]+d[i])/(2*(deltaXX[i])**2) *
                           np.exp(-(f[i-1]-f[i])/2) -
                           (d[i+1]+d[i])/(2*(deltaXX[i])**2) *
-                          np.exp(-(f[i+1]-f[i])/2) for i in range(11, 14)])
+                          np.exp(-(f[i+1]-f[i])/2) for i in range(172, 175)])
     if con:
         if np.any(np.array([deltaXX[i] != deltaXX[i+1]
-                            for i in range(11, 14)])):
+                            for i in range(172, 175)])):
             print('Error: deltaX is not kept constant in segment 4!\n'
                   'deltaX = ',
-                  [deltaXX[i] for i in range(11, 14)])
+                  [deltaXX[i] for i in range(172, 175)])
             sys.exit()
 
     # segment5 with new definition for variable binning in areas of const. D, F
     DiagUp5 = np.array([2*d[i]/(deltaXX[i+1]*(deltaXX[i+1]+deltaXX[i]))
-                        for i in range(14, d.size)])
+                        for i in range(175, d.size)])
     DiagDown5 = np.array([2*d[i]/(deltaXX[i]*(deltaXX[i+1]+deltaXX[i]))
-                          for i in range(14, d.size)])
+                          for i in range(175, d.size)])
     MainDiag5 = np.array([-2*d[i]/(deltaXX[i+1]*deltaXX[i])
-                          for i in range(14, d.size)])
+                          for i in range(175, d.size)])
     if con:
-        if np.any(np.array([d[i+1] != d[i] for i in range(14, d.size-1)])):
+        if np.any(np.array([d[i+1] != d[i] for i in range(175, d.size-1)])):
             print('Error: D is not kept constant in segment 5!\n D = ',
-                  [d[i] for i in range(14, d.size)])
+                  [d[i] for i in range(175, d.size)])
             sys.exit()
-        if np.any(np.array([f[i+1] != f[i] for i in range(14, d.size-1)])):
+        if np.any(np.array([f[i+1] != f[i] for i in range(175, d.size-1)])):
             print('Error: F is not kept constant in segment 5!\n F = ',
-                  [f[i] for i in range(14, d.size)])
+                  [f[i] for i in range(175, d.size)])
             sys.exit()
 
     # for reflective BCs
