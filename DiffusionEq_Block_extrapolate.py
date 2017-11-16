@@ -180,6 +180,16 @@ def analysis(result, dfParams, c0=None, xx=None, cc=None, tt=None, plot=False,
     df = np.concatenate((D_pre[:-1], F_pre[:-1]))
     regularization = np.sum((df-df0)**2)
 
+    # NOTE: using now different alphas for D and F
+    # in L-curve different corners, heuristically alphaF = 500*alphaD
+    alphaF = 500*alpha
+    alphaD = alpha
+    d0 = np.roll(D_pre, -1)  # enforcing smoothness of solution
+    f0 = np.roll(F_pre, -1)  # last value cannot be smoothed
+    df0 = np.concatenate((alphaD*d0[:-1], alphaF*f0[:-1]))
+    df_trunc = np.concatenate((alphaD*D_pre[:-1], alphaF*F_pre[:-1]))
+    regularization = np.sum(df_trunc-df0)**2
+
     print('\nBest solution has residuals\n|A*x-b|^2 = %f\n|x-x_0|^2 = %f' %
           (residual, regularization))
     np.savetxt(savePath+'res_alpha=%f.txt' % alpha,
@@ -248,8 +258,9 @@ def resFun(df, cc, tt, dfParams, deltaX=1, c0=None, verb=False, bc='reflective',
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
 
-    # NOTE: using now different alphas for D and F, heuristically alphaF = 100*alphaD
-    alphaF = 100*alpha
+    # NOTE: using now different alphas for D and F
+    # in L-curve different corners, heuristically alphaF = 500*alphaD
+    alphaF = 500*alpha
     alphaD = alpha
     d0 = np.roll(d, -1)  # enforcing smoothness of solution
     f0 = np.roll(f, -1)  # last value cannot be smoothed
