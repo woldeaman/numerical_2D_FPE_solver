@@ -181,8 +181,9 @@ def analysis(result, dfParams, c0=None, xx=None, cc=None, tt=None, plot=False,
     regularization = np.sum((df-df0)**2)
 
     # NOTE: using now different alphas for D and F
-    # in L-curve different corners, heuristically alphaF = 500*alphaD
-    alphaF = 500*alpha
+    # in L-curve different corners, heuristically alphaF = 1000*alphaD
+    # alphaF = 1000*alpha
+    alphaF = alpha
     alphaD = alpha
     d0 = np.roll(D_pre, -1)  # enforcing smoothness of solution
     f0 = np.roll(F_pre, -1)  # last value cannot be smoothed
@@ -259,8 +260,9 @@ def resFun(df, cc, tt, dfParams, deltaX=1, c0=None, verb=False, bc='reflective',
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
 
     # NOTE: using now different alphas for D and F
-    # in L-curve different corners, heuristically alphaF = 500*alphaD
-    alphaF = 500*alpha
+    # in L-curve different corners, heuristically alphaF = 1000*alphaD
+    # alphaF = 1000*alpha
+    alphaF = alpha
     alphaD = alpha
     d0 = np.roll(d, -1)  # enforcing smoothness of solution
     f0 = np.roll(f, -1)  # last value cannot be smoothed
