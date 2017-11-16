@@ -9,7 +9,6 @@ import inputOutput as io
 import FPModel as fp
 import functools as ft
 import scipy.optimize as op
-import scipy.signal as sg
 import scipy.special as sp
 import plottingScripts as ps
 import os
@@ -31,13 +30,13 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     # ----------------- setting working parameters --------------------- #
     # saving output in current results folder in current directory
     if savePath is None:
-        savePath = os.path.join(os.getcwd(), 'results_alpha=%f/' % alpha)
+        savePath = os.path.join(os.getcwd(), 'results_sigmoid/')
         if not os.path.exists(savePath):
             os.makedirs(savePath)
 
     I = result.size  # number of different ls-opti runs
     nbr = np.ceil(per*I).astype(int)  # number for top x% of the runs
-    M = tt.size+1  # number of different profiles, additional c0 profile
+    M = len(cc)
 
     N = cc[1].size  # number of bins
     n = M-1  # number of combinations for different c-profiles
@@ -56,73 +55,78 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     indices = np.argsort(Error)  # for sorting according to error
 
     # gathering mean of F and D for best x% of runs
-    D_pre = np.mean(np.array([result[indices[i]].x[:2]
+    D_pre = np.mean(np.array([result[indices[i]].x[:dfParams]
                               for i in range(nbr)]), axis=0)
-    F_preNoGauge = np.mean(np.array([result[indices[i]].x[2:4]
+    F_preNoGauge = np.mean(np.array([result[indices[i]].x[dfParams:dfParams*2]
                                      for i in range(nbr)]), axis=0)
     F_pre = F_preNoGauge - F_preNoGauge[0]
-    sigParamsDF_mean = np.mean(np.array([result[indices[i]].x[4:8]
-                                         for i in range(nbr)]), axis=0)
-    D_mean_pre = np.array([fp.sigmoidalDF(D_pre, sigParamsDF_mean[0],
-                                          sigParamsDF_mean[1], x) for x in xx_DF])
-    F_mean_pre = np.array([fp.sigmoidalDF(F_pre, sigParamsDF_mean[2],
-                                          sigParamsDF_mean[3], x) for x in xx_DF])
+    t_mean, d_mean = np.mean(np.array([result[indices[i]].x[dfParams*2:]
+                                       for i in range(nbr)]), axis=0)
+    D_mean_pre = np.array([fp.sigmoidalDF(D_pre, t_mean,
+                                          d_mean, x) for x in xx_DF])
+    F_mean_pre = np.array([fp.sigmoidalDF(F_pre, t_mean,
+                                          d_mean, x) for x in xx_DF])
 
     segments = np.concatenate((np.zeros(6), np.arange(D_mean_pre.size))).astype(int)
+    # now keeping fixed D, F in first 6 bins
     D_mean, F_mean = fp.computeDF(D_mean_pre, F_mean_pre, shape=segments)
 
     # gathering standart deviation for top x% of runs
     # computed from gauß errorpropagation for errors of D1, D2 or F1, F2
     # contribution of t_D, d_D, t_F and d_F neglected for now
-    DSTD_pre = np.std(np.array([result[indices[i]].x[:2]
+    DSTD_pre = np.std(np.array([result[indices[i]].x[:dfParams]
                                 for i in range(nbr)]), axis=0)
-    FSTD_pre = np.std(np.array([result[indices[i]].x[2:4]
+    FSTD_pre = np.std(np.array([result[indices[i]].x[dfParams:dfParams*2]
                                 for i in range(nbr)]), axis=0)
     DSTD_pre = np.array([np.sqrt(
         ((0.5 - sp.erf(
-            (x-sigParamsDF_mean[0])/(np.sqrt(2)*sigParamsDF_mean[1]))/2) *
+            (x-t_mean)/(np.sqrt(2)*d_mean))/2) *
          DSTD_pre[0])**2 +
         ((0.5 + sp.erf(
-            (x-sigParamsDF_mean[0])/(np.sqrt(2)*sigParamsDF_mean[1]))/2) *
+            (x-t_mean)/(np.sqrt(2)*d_mean))/2) *
          DSTD_pre[1])**2) for x in xx_DF])
     FSTD_pre = np.array([np.sqrt(
         ((0.5 - sp.erf(
-            (x-sigParamsDF_mean[2])/(np.sqrt(2)*sigParamsDF_mean[3]))/2) *
+            (x-t_mean)/(np.sqrt(2)*d_mean))/2) *
          FSTD_pre[0])**2 +
         ((0.5 + sp.erf(
-            (x-sigParamsDF_mean[2])/(np.sqrt(2)*sigParamsDF_mean[3]))/2) *
+            (x-t_mean)/(np.sqrt(2)*d_mean))/2) *
          FSTD_pre[1])**2) for x in xx_DF])
+    # now keeping fixed D, F in first 6 bins
     DSTD, FSTD = fp.computeDF(DSTD_pre, FSTD_pre, shape=segments)
 
     # gathering best D and F for computation of profiles
-    D_best_pre = result[indices[0]].x[:2]
-    F_best_preNoGauge = result[indices[0]].x[2:4]
+    D_best_pre = result[indices[0]].x[:dfParams]
+    F_best_preNoGauge = result[indices[0]].x[dfParams:dfParams*2]
     F_best_pre = F_best_preNoGauge - F_best_preNoGauge[0]
-    sigParamsDF_best = result[indices[0]].x[4:8]
-    D_best_pre = np.array([fp.sigmoidalDF(D_best_pre, sigParamsDF_best[0],
-                                          sigParamsDF_best[1], x) for x in xx_DF])
-    F_best_pre = np.array([fp.sigmoidalDF(F_best_pre, sigParamsDF_best[2],
-                                          sigParamsDF_best[3], x) for x in xx_DF])
+    t_best, d_best = result[indices[0]].x[dfParams*2:]
+    D_best_pre = np.array([fp.sigmoidalDF(D_best_pre, t_best, d_best, x) for x in xx_DF])
+    F_best_pre = np.array([fp.sigmoidalDF(F_best_pre, t_best, d_best, x) for x in xx_DF])
+    # now keeping fixed D, F in first 6 bins
     D_best, F_best = fp.computeDF(D_best_pre, F_best_pre, shape=segments)
 
-    # gather fitted c0 profile and t0
-    # NOTE: take only best fitted c0 and t0
-    c0_const = result[indices[0]].x[-2]
-    gel = 14  # number of bins for gel
-    bulk = dx_width.size - gel  # number of bins for bulk
-    c0 = np.concatenate((np.ones(bulk)*c0_const, np.zeros(gel)))
-    cc = [c0] + cc  # new cc contains all profiles in list
-    t0 = result[indices[0]].x[-1]
-    # shift time vector, first profile at t=0, next t0 later, then every 3min
-    tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
+    # # gather fitted c0 profile and t0
+    # # NOTE: take only best fitted c0 and t0
+    # c0_const = result[indices[0]].x[-2]
+    # gel = 14  # number of bins for gel
+    # bulk = dx_width.size - gel  # number of bins for bulk
+    # c0 = np.concatenate((np.ones(bulk)*c0_const, np.zeros(gel)))
+    # cc = [c0] + cc  # new cc contains all profiles in list
+    # t0 = result[indices[0]].x[-1]
+    # # shift time vector, first profile at t=0, next t0 later, then every 3min
+    # tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
 
     # computing rate matrix
-    W = fp.WMatrixVar(D_best, F_best,  start=4, end=None,
-                      deltaXX=dx_dist, con=True)
+    W = fp.WMatrixVar(D_best, F_best,  start=4, end=None, deltaXX=dx_dist,
+                      con=True)
 
     # computing concentration profiles for best D and F
-    ccRes = np.array([fp.calcC(cc[0], tt[j], W=W, bc=bc)
-                      for j in range(M)]).T
+    ccRes = np.array([fp.calcC(cc[0], tt[j], W=W, bc=bc) for j in range(M)]).T
+    # computing smoothed profiles as for residuals
+    cc_avg = np.array([np.array([np.average([ccRes[i, j], ccRes[i+1, j]]) if i == 0 else
+                       np.average([ccRes[i-1, j], ccRes[i, j]]) if i == ccRes[:, j].size-1
+                       else np.average([ccRes[i-1, j], ccRes[i, j], ccRes[i+1, j]])
+                       for i in range(ccRes[:, j].size)]) for j in range(ccRes[0, :].size)]).T
     # -------------------------- loading results --------------------------- #
 
     # --------------------------- saving data ------------------------------- #
@@ -163,40 +167,17 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     # ------------------------- plotting data ------------------------------- #
     if plot:
         # plotting profiles
-        ps.plotConSkin(xx, cc, ccRes, tt, locs=[1, 3], save=True, path=savePath)
+        ps.plotConSkin(xx, cc, ccRes, tt, locs=[1, 3], save=True, path=savePath,
+                       name='profiles_raw')
+        # plot smoothed profiles
+        ps.plotConSkin(xx, cc, cc_avg, tt, locs=[1, 3], save=True,
+                       path=savePath, name='profiles_smoothed')
+
         # plotting averaged D and F
         ps.plotDF(xx, D_mean, F_mean, D_STD=DSTD, F_STD=FSTD, save=True,
                   style='.--', path=savePath)
         ps.plotDF(xx, D_best, F_best, save=True, style='.--', name='bestDF',
                   path=savePath)
-
-    # ---------------------- regularization ------------------------------ #
-    RR = np.zeros((n, N))
-
-    k = 0
-    for j in range(1, M):
-        # fitting only in the range where measurements where performed
-        RR[k, :] = cc[j] - fp.calcC(cc[0], (tt[j] - tt[0]), W=W,
-                                    bc=bc)[6:-3]
-        k += 1
-
-    # calculating vector of residuals
-    RRn = RR.reshape(RR.size)  # residual vector contains all deviations
-    # NOTE/CHANGED: now doing tykhonov regularization, but with smoothing
-    # QUESTION: think about last bin of D and F, currently smoothed to first bin
-    df = np.concatenate((D_best[:-1], F_best[:-1]))
-    d0 = np.roll(D_best, -1)
-    f0 = np.roll(F_best, -1)
-    df0 = np.concatenate((d0[:-1], f0[:-1]))
-
-    regularization = np.sum((alpha*(df-df0))**2)
-    residual = np.sum(RRn**2)
-    print('\nBest solution has residuals\n|A*x-b|^2 = %f\nalpha*|x-x_0|^2 = %f' %
-          (residual, regularization))
-    np.savetxt(savePath+'res_alpha=%f.txt' % alpha,
-               np.array([residual, regularization]),
-               header='row 1: |A*x-b|^2\nrow 2: alpha*|x-x_0|^2')
-    # ---------------------- regularization ------------------------------ #
 
 
 # function for computation of residuals, given to optimization function as
@@ -215,34 +196,35 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
     width of individual bins: dx_width
     '''
 
-    M = len(cc)+1  # number of concentration profiles, additional c0 profile
+    M = len(cc)  # number of concentration profiles, additional c0 profile
     N = cc[1].size  # number of bins
 
     # gathering D and F from non LSQ algorithm
     # DF parameters to be optimized D1, D2, F1, F2, t_D, d_D, t_F, d_F
-    d = df[:2]
-    f = df[2:4]  # letting F completely free
+    d = df[:dfParams]
+    f = df[dfParams:dfParams*2]  # letting F completely free
+
     # computing sigmoidal d and f profiles
-    t_D, d_D, t_F, d_F = df[4], df[5], df[6], df[7]
-    D = np.array([fp.sigmoidalDF(d, t_D, d_D, x) for x in xx])
-    F = np.array([fp.sigmoidalDF(f, t_F, d_F, x) for x in xx])
+    t_sig, d_sig = df[4], df[5]
+    D = np.array([fp.sigmoidalDF(d, t_sig, d_sig, x) for x in xx])
+    F = np.array([fp.sigmoidalDF(f, t_sig, d_sig, x) for x in xx])
     # now keeping fixed D, F in first 6 bins
     segments = np.concatenate((np.zeros(6), np.arange(D.size))).astype(int)
-    d, f = fp.computeDF(D, F, shape=segments)
+    D, F = fp.computeDF(D, F, shape=segments)
 
-    # gathering c0 profile and t0 from non LSQ algorithm
-    c0_const = df[-2]
-    gel = 14  # number of bins for gel
-    bulk = dx_width.size - gel  # number of bins for bulk
-    c0 = np.concatenate((np.ones(bulk)*c0_const, np.zeros(gel)))
-    cc = [c0] + cc  # add c0 profile to list of all profiles
-    t0 = df[-1]
-    # shift time vector, first profile at t=0, next t0 later, then every 3min
-    tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
+    # # gathering c0 profile and t0 from non LSQ algorithm
+    # c0_const = df[-2]
+    # gel = 14  # number of bins for gel
+    # bulk = dx_width.size - gel  # number of bins for bulk
+    # c0 = np.concatenate((np.ones(bulk)*c0_const, np.zeros(gel)))
+    # cc = [c0] + cc  # add c0 profile to list of all profiles
+    # t0 = df[-1]
+    # # shift time vector, first profile at t=0, next t0 later, then every 3min
+    # tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
 
     # computing matrix with variable discretization
     # start needs to be smaller than 6, because D, F is const. only there
-    W = fp.WMatrixVar(d, f,  start=4, end=None, deltaXX=dx_dist, con=True)
+    W = fp.WMatrixVar(D, F,  start=4, end=None, deltaXX=dx_dist, con=True)
 
     # testing conservation of concentration for reflective boundaries
     # NOTE: Column sum does not vanish anymore for variable binning, but equally
@@ -273,37 +255,25 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
     # T = al.expm(W)  # storing exponential matrix
     # computing residual vector
     n = M-1  # number of combinations for different c-profiles
-    RR = np.zeros((n, N))
 
-    # # NOTE: now smoothing profiles before comparing with experimental ones
-    # # to better represent experimental conditions, using Savitzky-Golay
-    # smoothed = [sg.savgol_filter(ccComp[i], window_length=11,
-    #                              polyorder=3) for i in range(M)]
-    # ccComp = smoothed
+    # NOTE: compare only averaged c_num to experimental values
+    cc_avg = [np.array([np.average([ccComp[j][i], ccComp[j][i+1]]) if i == 0 else
+                       np.average([ccComp[j][i-1], ccComp[j][i]]) if i == ccComp[j].size-1
+                       else np.average([ccComp[j][i-1], ccComp[j][i], ccComp[j][i+1]])
+                       for i in range(ccComp[j].size)]) for j in range(len(ccComp))]
 
-    # import matplotlib.pyplot as plt
-    # import matplotlib.cm as cm
-    # lines = np.linspace(0, 1, M)
-    # colors = [cm.jet(x) for x in lines]
-    # plt.figure()
-    # for i in range(1, M):
-    #     plt.plot(smoothed[i], '-', c=colors[i])
-    #     plt.plot(ccComp[i], '.', c=colors[i])
-    # plt.show()
-    # plt.close('all')
-
-    RR = np.array([cc[j] - ccComp[j][6:-3] for j in range(1, M)]).T
+    RR = np.array([cc[j] - cc_avg[j][6:-3] for j in range(1, M)]).T
 
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
 
-    # NOTE: now doing tykhonov regularization, but with smoothing
-    d0 = np.roll(D, -1)  # enforcing smoothness of solution
-    f0 = np.roll(F, -1)
-    df0 = np.concatenate((d0[:-1], f0[:-1]))  # last value cannot be smoothed
-    df_trunc = np.concatenate((D[:-1], F[:-1]))
-    regularization = alpha*(df_trunc-df0)
-    RRn = np.append(RRn, regularization)  # appended residual vector
+    # # NOTE: now doing tykhonov regularization, but with smoothing
+    # d0 = np.roll(D, -1)  # enforcing smoothness of solution
+    # f0 = np.roll(F, -1)
+    # df0 = np.concatenate((d0[:-1], f0[:-1]))  # last value cannot be smoothed
+    # df_trunc = np.concatenate((D[:-1], F[:-1]))
+    # regularization = alpha*(df_trunc-df0)
+    # RRn = np.append(RRn, regularization)  # appended residual vector
 
     # print out error estimate in form of standart deviation if wanted
     if (verb):
@@ -314,8 +284,8 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
 
 
 # extra function for optimization process, written for easy parallelization
-def optimization(DRange, FRange, tdRange, c0Init, t0Init, bnds, cc, xx, tt,
-                 dfParams=None, deltaX=1, c0=None, dx_dist=None, dx_width=None,
+def optimization(DRange, FRange, tdRange, bnds, cc, xx, tt, dfParams=None,
+                 deltaX=1, c0=None, dx_dist=None, dx_width=None,
                  verb=0, bc='reflective', alpha=0):
     """
     Helper function for non-linear LS optimization to profiles.
@@ -332,7 +302,7 @@ def optimization(DRange, FRange, tdRange, c0Init, t0Init, bnds, cc, xx, tt,
                           bc=bc, dx_dist=dx_dist, dx_width=dx_width,
                           verb=funcVerb, alpha=alpha, dfParams=dfParams)
 
-    initVal = np.concatenate((DRange, FRange, tdRange, c0Init, t0Init))
+    initVal = np.concatenate((DRange, FRange, tdRange))
     # running freely with standart termination conditions
     result = op.least_squares(optimize, initVal, bounds=bnds,
                               max_nfev=None, verbose=scpVerb)
@@ -345,6 +315,7 @@ def main():
     (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit,
      DInit, alpha) = io.startUp()
 
+    # ------------------------- discretization ------------------------ #
     # lenght of the different segments for computation
     x_tot = 1500  # total length of system in µm
     x_2 = np.max(xx)  # length of segment 2, x_2 = 150 µm
@@ -369,6 +340,7 @@ def main():
     # NOTE:
     # dxx_dist has one element more than dxx_width because it for WMatrix
     # computation dx at i+1 is necccessary --> needed for last bin too
+    # ------------------------- discretization ------------------------ #
 
     # NOTE: building c0 profile, assume c0 const. in bulk (for x < 50 µm)
     c_const = cc[0, -1]  # take first value of last profile as c0
@@ -376,45 +348,43 @@ def main():
     bulk = dxx_width.size - gel  # number of bins for bulk
     c0 = np.concatenate((np.ones(bulk)*c_const, np.zeros(gel)))
     cc = [cc[:, i] for i in range(cc[0, :].size)]
-    # cc = [c0] + cc  # add c0 profile to list of all profiles
+    cc = [c0] + cc  # add c0 profile to list of all profiles
     t0 = 120  # time after c0 profile
+    tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
 
     # NOTE: try to fit bulk value in c0 profile and time at t=0
     # setting bounds for fitted concentration profile
-    bndsc0Upper = np.ones(1)*25  # more than 25µM does not seem appropriate
-    bndsc0Lower = np.zeros(1)  # concentration not smaller than zero
-    c0Init = np.ones(1)*c_const
-    bndst0Lower = np.zeros(1)
-    bndst0Upper = np.ones(1)*5*60  # more than 5 min does not seem appropriate
-    t0Init = np.ones(1)*t0
+    # bndsc0Upper = np.ones(1)*25  # more than 25µM does not seem appropriate
+    # bndsc0Lower = np.zeros(1)  # concentration not smaller than zero
+    # c0Init = np.ones(1)*c_const
+    # bndst0Lower = np.zeros(1)
+    # bndst0Upper = np.ones(1)*5*60  # more than 5 min does not seem appropriate
+    # t0Init = np.ones(1)*t0
 
     # overriding bounds for custom set of parameters
     DBound = 1000
     FBound = 20
+    params = 2  # only two values for D, F
 
-    bndsDUpper = np.ones(2)*DBound
-    bndsFUpper = np.ones(2)*FBound
+    bndsDUpper = np.ones(params)*DBound
+    bndsFUpper = np.ones(params)*FBound
     # otherwise singular matrix due to vanishing D --> vanishing rates
-    bndsDLower = np.ones(2)*1E-5
-    bndsFLower = np.ones(2)*(-FBound)
+    bndsDLower = np.zeros(params)
+    bndsFLower = np.ones(params)*(-FBound)
     # bounds for interface position and layer thickness zero and max x position
-    # using independent parameters for F and D profiles --> 4 params
-    tdBoundsLower = np.zeros(4)
-    tdBoundsUpper = np.ones(4)*np.max(xx)
+    tdBoundsLower = np.zeros(2)
+    tdBoundsUpper = np.ones(2)*np.max(xx)
     FInit = np.zeros(2)
     DInit = (np.random.rand(2, Runs)*DBound)
-    # order is [t_D, d_D, t_F, d_F]
-    # set boundary initially at x = 50
-    tdInit = np.array([50, deltaX*3]*2)
+    # order is [t, d], set boundary initially at x = 50
+    tdInit = np.array([50, deltaX*3])
 
-    bnds = (np.concatenate((bndsDLower, bndsFLower, tdBoundsLower,
-                            bndsc0Lower, bndst0Lower)),
-            np.concatenate((bndsDUpper, bndsFUpper, tdBoundsUpper,
-                            bndsc0Upper, bndst0Upper)))
+    bnds = (np.concatenate((bndsDLower, bndsFLower, tdBoundsLower)),
+            np.concatenate((bndsDUpper, bndsFUpper, tdBoundsUpper)))
 
     # custom x-vector, only for analysis and plotting
     xx = np.arange(c0.size)
-    # used to compute sigmoidal DF profiles
+    # used to compute sigmoidal DF profiles, x<0 for first 6 bins
     # first 6 bins have constant d, f
     xx_DF = [np.sum(dxx_dist[6:i]) for i in range(6, dxx_dist.size-1)]
 
@@ -424,7 +394,7 @@ def main():
         res = np.load('result.npy')
         print('Overall %i runs have been performed.' % res.size)
         analysis(np.array(res), bc=bc_mode, c0=c0, xx=xx, xx_DF=xx_DF, cc=cc, tt=tt,
-                 deltaX=deltaXX, alpha=alpha, plot=True, per=0.1,
+                 deltaX=deltaXX, alpha=alpha, plot=True, per=0.1, dfParams=params,
                  dx_dist=dxx_dist, dx_width=dxx_width)
         print('\nPlots have been made and data was extraced and saved.')
         sys.exit()
@@ -435,11 +405,10 @@ def main():
         print('\nNow at run %i out of %i...\n' % (i+1, Runs))
         try:
             results.append(optimization(DRange=DInit[:, i],
-                                        FRange=FInit, c0Init=c0Init,
-                                        t0Init=t0Init, tdRange=tdInit,
-                                        dx_dist=dxx_dist, dx_width=dxx_width,
-                                        bnds=bnds, cc=cc, xx=xx_DF,
-                                        tt=tt, deltaX=deltaXX, c0=c0,
+                                        FRange=FInit, tdRange=tdInit,
+                                        dfParams=params, dx_dist=dxx_dist,
+                                        dx_width=dxx_width, bnds=bnds, cc=cc,
+                                        xx=xx_DF, tt=tt, deltaX=deltaXX, c0=c0,
                                         verb=verbosity, bc=bc_mode,
                                         alpha=alpha))
             np.save('result.npy', np.array(results))
@@ -447,9 +416,9 @@ def main():
             print('\n\nScript has been terminated.\nData will now be analyzed...')
             break
 
-    analysis(np.array(results), bc=bc_mode, c0=c0, xx_DF=xx_DF, xx=xx, cc=cc, tt=tt,
-             deltaX=deltaXX, alpha=alpha, plot=True, per=0.1, dx_dist=dxx_dist,
-             dx_width=dxx_width)
+    analysis(np.array(results), bc=bc_mode, c0=c0, xx_DF=xx_DF, xx=xx, cc=cc,
+             tt=tt, dfParams=params, deltaX=deltaXX, alpha=alpha, plot=True,
+             per=0.1, dx_dist=dxx_dist, dx_width=dxx_width)
 
     # returns number of runs in order to compute average time per run
     return Runs

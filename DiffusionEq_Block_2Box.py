@@ -29,7 +29,7 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     # ----------------- setting working parameters --------------------- #
     # saving output in current results folder in current directory
     if savePath is None:
-        savePath = os.path.join(os.getcwd(), 'results/')
+        savePath = os.path.join(os.getcwd(), 'results_2Box/')
         if not os.path.exists(savePath):
             os.makedirs(savePath)
 
@@ -305,6 +305,7 @@ def main():
 
     # NOTE: building c0 profile, assume c0 const. in bulk (for x < 50 µm)
     c_const = cc[0, -1]  # take first value of last profile as c0
+
     gel = 14  # number of bins for gel
     bulk = dxx_width.size - gel  # number of bins for bulk
     c0 = np.concatenate((np.ones(bulk)*c_const, np.zeros(gel)))
