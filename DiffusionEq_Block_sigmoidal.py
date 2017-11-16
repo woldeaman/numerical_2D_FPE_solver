@@ -344,11 +344,20 @@ def main():
 
     # NOTE: building c0 profile, assume c0 const. in bulk (for x < 50 µm)
     c_const = cc[0, -1]  # take first value of last profile as c0
-    gel = 14  # number of bins for gel
-    bulk = dxx_width.size - gel  # number of bins for bulk
-    c0 = np.concatenate((np.ones(bulk)*c_const, np.zeros(gel)))
-    cc = [cc[:, i] for i in range(cc[0, :].size)]
-    cc = [c0] + cc  # add c0 profile to list of all profiles
+    # gel = 14  # number of bins for gel
+    # bulk = dxx_width.size - gel  # number of bins for bulk
+    # c0 = np.concatenate((np.ones(bulk)*c_const, np.zeros(gel)))
+    # cc = [cc[:, i] for i in range(cc[0, :].size)]
+    # cc = [c0] + cc  # add c0 profile to list of all profiles
+    # NOTE: now taking c0 profile from extrapolation
+    # overriding c0 profile with extrapolated values for last three bins
+    c0 = np.array([20.43270674, 20.39872678, 20.20967943, 19.82748853,
+                   19.21407792, 18.33137147, 17.14129302, 15.6057664,
+                   13.72638617, 11.66342956, 9.61684452, 7.78657898, 6.32955,
+                   5.23055121, 4.43134534, 3.87369514, 3.49936335, 3.25011271,
+                   3.06770597])
+    c0 = np.concatenate((np.ones(6)*c_const, c0))
+    cc = [c0] + [cc[:, i] for i in range(1, cc[0, :].size)]  # now with c0
     t0 = 120  # time after c0 profile
     tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
 

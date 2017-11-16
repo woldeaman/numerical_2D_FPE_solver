@@ -29,7 +29,7 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     # ----------------- setting working parameters --------------------- #
     # saving output in current results folder in current directory
     if savePath is None:
-        savePath = os.path.join(os.getcwd(), 'results_2Box/')
+        savePath = os.path.join(os.getcwd(), 'results_2Box_dist_%d/' % tInt)
         if not os.path.exists(savePath):
             os.makedirs(savePath)
 
@@ -305,12 +305,20 @@ def main():
 
     # NOTE: building c0 profile, assume c0 const. in bulk (for x < 50 µm)
     c_const = cc[0, -1]  # take first value of last profile as c0
-
-    gel = 14  # number of bins for gel
-    bulk = dxx_width.size - gel  # number of bins for bulk
-    c0 = np.concatenate((np.ones(bulk)*c_const, np.zeros(gel)))
-    cc = [cc[:, i] for i in range(cc[0, :].size)]
-    cc = [c0] + cc  # add c0 profile to list of all profiles
+    # gel = 14  # number of bins for gel
+    # bulk = dxx_width.size - gel  # number of bins for bulk
+    # c0 = np.concatenate((np.ones(bulk)*c_const, np.zeros(gel)))
+    # cc = [cc[:, i] for i in range(cc[0, :].size)]
+    # cc = [c0] + cc  # add c0 profile to list of all profiles
+    # NOTE: now taking c0 profile from extrapolation
+    # overriding c0 profile with extrapolated values for last three bins
+    c0 = np.array([20.43270674, 20.39872678, 20.20967943, 19.82748853,
+                   19.21407792, 18.33137147, 17.14129302, 15.6057664,
+                   13.72638617, 11.66342956, 9.61684452, 7.78657898, 6.32955,
+                   5.23055121, 4.43134534, 3.87369514, 3.49936335, 3.25011271,
+                   3.06770597])
+    c0 = np.concatenate((np.ones(6)*c_const, c0))
+    cc = [c0] + [cc[:, i] for i in range(1, cc[0, :].size)]  # now with c0
     t0 = 120  # time after c0 profile
     tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
 
@@ -328,7 +336,6 @@ def main():
     # tBoundsUpper = np.ones(1)*np.max(xx)
     FInit = np.zeros(params)
     DInit = (np.random.rand(params, Runs)*DBound)
-    tInit = 50  # interface at 50 µm
 
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
@@ -341,6 +348,9 @@ def main():
                       for i in range(dxx_dist.size-1)])
     # ---------------- option for analysis only --------------------------- #
     if ana:
+        print('Not possible with this version, sorry...')
+        sys.exit()
+        tInit = 50  # interface at 50 µm
         print('\nDoing analysis only.')
         res = np.load('result.npy')
         print('Overall %i runs have been performed.' % res.size)
@@ -351,25 +361,29 @@ def main():
         sys.exit()
     # ---------------- option for analysis only --------------------------- #
 
-    results = []
-    for i in range(Runs):
-        print('\nNow at run %i out of %i...\n' % (i+1, Runs))
-        try:
-            results.append(optimization(DRange=DInit[:, i],
-                                        FRange=FInit, dfParams=params,
-                                        tdRange=tInit, dx_dist=dxx_dist,
-                                        dx_width=dxx_width, bnds=bnds, cc=cc,
-                                        tt=tt, xx=xx_DF, c0=c0,
-                                        verb=verbosity, bc=bc_mode,
-                                        alpha=alpha))
-            np.save('result.npy', np.array(results))
-        except KeyboardInterrupt:
-            print('\n\nScript has been terminated.\nData will now be analyzed...')
-            break
+    # iterate over all possible interfaces
+    distances = np.arange(0, 190, step=10)
 
-    analysis(np.array(results), bc=bc_mode, c0=c0, xx=xx, xx_DF=xx_DF,
-             tInt=tInit, cc=cc, tt=tt, deltaX=deltaXX, alpha=alpha, plot=True,
-             per=0.1, dx_dist=dxx_dist, dx_width=dxx_width, dfParams=params)
+    for tInit in distances:
+        results = []
+        for i in range(Runs):
+            print('\nNow at run %i out of %i... for t_int = %iµm out of %iµm\n' % (i+1, Runs, tInit, distances[-1]))
+            try:
+                results.append(optimization(DRange=DInit[:, i],
+                                            FRange=FInit, dfParams=params,
+                                            tdRange=tInit, dx_dist=dxx_dist,
+                                            dx_width=dxx_width, bnds=bnds, cc=cc,
+                                            tt=tt, xx=xx_DF, c0=c0,
+                                            verb=verbosity, bc=bc_mode,
+                                            alpha=alpha))
+                np.save('result.npy', np.array(results))
+            except KeyboardInterrupt:
+                print('\n\nScript has been terminated.\nData will now be analyzed...')
+                break
+
+        analysis(np.array(results), bc=bc_mode, c0=c0, xx=xx, xx_DF=xx_DF,
+                 tInt=tInit, cc=cc, tt=tt, deltaX=deltaXX, alpha=alpha, plot=True,
+                 per=0.1, dx_dist=dxx_dist, dx_width=dxx_width, dfParams=params)
 
     # returns number of runs in order to compute average time per run
     return Runs
