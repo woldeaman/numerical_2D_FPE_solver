@@ -344,7 +344,7 @@ def main():
     xx = np.arange(c0.size)
     # used to compute sigmoidal DF profiles, x<0 for first 6 bins
     xx_DF = np.array([np.sum(dxx_dist[6:i]) if i >= 6
-                      else -np.sum(dxx_dist[i+1:7])
+                      else -np.sum(dxx_dist[i:6])
                       for i in range(dxx_dist.size-1)])
     # ---------------- option for analysis only --------------------------- #
     if ana:

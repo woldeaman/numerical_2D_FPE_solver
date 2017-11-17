@@ -361,6 +361,8 @@ def main():
     t0 = 120  # time after c0 profile
     tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
 
+<<<<<<< HEAD
+=======
     # NOTE: try to fit bulk value in c0 profile and time at t=0
     # setting bounds for fitted concentration profile
     # bndsc0Upper = np.ones(1)*25  # more than 25µM does not seem appropriate
@@ -370,6 +372,7 @@ def main():
     # bndst0Upper = np.ones(1)*5*60  # more than 5 min does not seem appropriate
     # t0Init = np.ones(1)*t0
 
+>>>>>>> dc926c7d4f9b2d8744ac2a417630ebcb3c6db2f0
     # overriding bounds for custom set of parameters
     DBound = 1000
     FBound = 20
