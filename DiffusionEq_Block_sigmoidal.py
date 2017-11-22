@@ -105,17 +105,6 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     # now keeping fixed D, F in first 6 bins
     D_best, F_best = fp.computeDF(D_best_pre, F_best_pre, shape=segments)
 
-    # # gather fitted c0 profile and t0
-    # # NOTE: take only best fitted c0 and t0
-    # c0_const = result[indices[0]].x[-2]
-    # gel = 14  # number of bins for gel
-    # bulk = dx_width.size - gel  # number of bins for bulk
-    # c0 = np.concatenate((np.ones(bulk)*c0_const, np.zeros(gel)))
-    # cc = [c0] + cc  # new cc contains all profiles in list
-    # t0 = result[indices[0]].x[-1]
-    # # shift time vector, first profile at t=0, next t0 later, then every 3min
-    # tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
-
     # computing rate matrix
     W = fp.WMatrixVar(D_best, F_best,  start=4, end=None, deltaXX=dx_dist,
                       con=True)
@@ -165,19 +154,22 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     # --------------------------- saving data ------------------------------- #
 
     # ------------------------- plotting data ------------------------------- #
+    # for labeling the x-axis correctly
+    xlabels = [[xx[0], xx[6], xx[11], xx[16], xx[21], xx[-1]],
+               [-1500, 0, 50, 100, 150, 180]]
     if plot:
         # plotting profiles
         ps.plotConSkin(xx, cc, ccRes, tt, locs=[1, 3], save=True, path=savePath,
-                       name='profiles_raw')
+                       name='profiles_raw', xticks=xlabels)
         # plot smoothed profiles
         ps.plotConSkin(xx, cc, cc_avg, tt, locs=[1, 3], save=True,
-                       path=savePath, name='profiles_smoothed')
+                       path=savePath, name='profiles_smoothed', xticks=xlabels)
 
         # plotting averaged D and F
         ps.plotDF(xx, D_mean, F_mean, D_STD=DSTD, F_STD=FSTD, save=True,
-                  style='.--', path=savePath)
+                  style='.--', path=savePath, xticks=xlabels)
         ps.plotDF(xx, D_best, F_best, save=True, style='.--', name='bestDF',
-                  path=savePath)
+                  path=savePath, xticks=xlabels)
 
 
 # function for computation of residuals, given to optimization function as
@@ -212,16 +204,6 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
     segments = np.concatenate((np.zeros(6), np.arange(D.size))).astype(int)
     D, F = fp.computeDF(D, F, shape=segments)
 
-    # # gathering c0 profile and t0 from non LSQ algorithm
-    # c0_const = df[-2]
-    # gel = 14  # number of bins for gel
-    # bulk = dx_width.size - gel  # number of bins for bulk
-    # c0 = np.concatenate((np.ones(bulk)*c0_const, np.zeros(gel)))
-    # cc = [c0] + cc  # add c0 profile to list of all profiles
-    # t0 = df[-1]
-    # # shift time vector, first profile at t=0, next t0 later, then every 3min
-    # tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
-
     # computing matrix with variable discretization
     # start needs to be smaller than 6, because D, F is const. only there
     W = fp.WMatrixVar(D, F,  start=4, end=None, deltaXX=dx_dist, con=True)
@@ -252,7 +234,6 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
             print('WMatrix 2Sum:\n', np.sum(np.sum(W, 0)))
             sys.exit()
 
-    # T = al.expm(W)  # storing exponential matrix
     # computing residual vector
     n = M-1  # number of combinations for different c-profiles
 
@@ -266,14 +247,6 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
 
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
-
-    # # NOTE: now doing tykhonov regularization, but with smoothing
-    # d0 = np.roll(D, -1)  # enforcing smoothness of solution
-    # f0 = np.roll(F, -1)
-    # df0 = np.concatenate((d0[:-1], f0[:-1]))  # last value cannot be smoothed
-    # df_trunc = np.concatenate((D[:-1], F[:-1]))
-    # regularization = alpha*(df_trunc-df0)
-    # RRn = np.append(RRn, regularization)  # appended residual vector
 
     # print out error estimate in form of standart deviation if wanted
     if (verb):
@@ -342,15 +315,8 @@ def main():
     # computation dx at i+1 is necccessary --> needed for last bin too
     # ------------------------- discretization ------------------------ #
 
-    # NOTE: building c0 profile, assume c0 const. in bulk (for x < 50 µm)
+    # NOTE: building extrapolated c0 profile, assume c0 const. in bulk
     c_const = cc[0, -1]  # take first value of last profile as c0
-    # gel = 14  # number of bins for gel
-    # bulk = dxx_width.size - gel  # number of bins for bulk
-    # c0 = np.concatenate((np.ones(bulk)*c_const, np.zeros(gel)))
-    # cc = [cc[:, i] for i in range(cc[0, :].size)]
-    # cc = [c0] + cc  # add c0 profile to list of all profiles
-    # NOTE: now taking c0 profile from extrapolation
-    # overriding c0 profile with extrapolated values for last three bins
     c0 = np.array([20.43270674, 20.39872678, 20.20967943, 19.82748853,
                    19.21407792, 18.33137147, 17.14129302, 15.6057664,
                    13.72638617, 11.66342956, 9.61684452, 7.78657898, 6.32955,
@@ -358,21 +324,7 @@ def main():
                    3.06770597])
     c0 = np.concatenate((np.ones(6)*c_const, c0))
     cc = [c0] + [cc[:, i] for i in range(1, cc[0, :].size)]  # now with c0
-    t0 = 120  # time after c0 profile
-    tt = np.concatenate((np.zeros(1), tt+t0)).astype(int)
 
-<<<<<<< HEAD
-=======
-    # NOTE: try to fit bulk value in c0 profile and time at t=0
-    # setting bounds for fitted concentration profile
-    # bndsc0Upper = np.ones(1)*25  # more than 25µM does not seem appropriate
-    # bndsc0Lower = np.zeros(1)  # concentration not smaller than zero
-    # c0Init = np.ones(1)*c_const
-    # bndst0Lower = np.zeros(1)
-    # bndst0Upper = np.ones(1)*5*60  # more than 5 min does not seem appropriate
-    # t0Init = np.ones(1)*t0
-
->>>>>>> dc926c7d4f9b2d8744ac2a417630ebcb3c6db2f0
     # overriding bounds for custom set of parameters
     DBound = 1000
     FBound = 20
