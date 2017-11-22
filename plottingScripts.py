@@ -26,7 +26,7 @@ def plotMinError(distance, Error, ESTD, save=False,
 
 # plotting format for D and F in the same figure
 def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False, style='.',
-           scale='linear', name='avgDF', path=None, ):
+           scale='linear', name='avgDF', path=None, xticks=None):
     """
     Plots D and F profiles
     """
@@ -45,7 +45,7 @@ def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False, style='.',
     else:
         plt.errorbar(xx, F, yerr=F_STD, fmt=style+'b')
     plt.ylabel('Free Energy [k$_{B}$T]', color='b')
-    plt.xlabel('Distance [µm]')
+    plt.xlabel('z-distance [µm]')
     plt.tick_params('y', colors='b')
     # plotting D
     plt.twinx()
@@ -60,6 +60,8 @@ def plotDF(xx, D, F, D_STD=None, F_STD=None, save=False, style='.',
     plt.yscale(scale)
     plt.tick_params('y', colors='r')
     plt.xlabel('Distance [µm]')
+    if xticks is not None:
+        plt.xticks(xticks[0], xticks[1])
     if save:
         plt.savefig(path+'%s.pdf' % name, bbox_inches='tight')
     else:
@@ -184,7 +186,7 @@ def plotConTrans(xx, cc, ccRes, c0, tt, TransIndex, layerD, save=False,
 
 # for printing c-profiles
 def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
-                deltaXX=None, start=6, end=-3, name='profiles'):
+                deltaXX=None, start=6, end=-3, xticks=None, name='profiles'):
 
     M = len(cc)  # number of profiles
     N = ccRes[0, :].size  # number of bins
@@ -204,10 +206,6 @@ def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
 
     plt.figure()
     for j in range(M):
-        plt.gca().set_xlim(left=xx[0])
-        plt.gca().set_xlim(right=xx[-1])
-        plt.xlabel('Bins')
-        plt.ylabel('Concentration [µM]')
         if j == 0:
             l1, = plt.plot(xx, cc[j], '--', color=colors[j])
         else:
@@ -224,6 +222,12 @@ def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
     plt.legend([l[0] for l in l1s], ["%d min" % (tt[i]/60)
                                      for i in range(tt.size)], loc=locs[1])
     plt.gca().add_artist(legend1)
+    plt.gca().set_xlim(left=xx[0])
+    plt.gca().set_xlim(right=xx[-1])
+    plt.xlabel('z-distance [µm]')
+    plt.ylabel('Concentration [µM]')
+    if xticks is not None:
+        plt.xticks(xticks[0], xticks[1])
 
     if save:
         plt.savefig(path+'%s.pdf' % name, bbox_inches='tight')
