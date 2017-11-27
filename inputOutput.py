@@ -299,3 +299,59 @@ def plotCon(cc, xx=None, live=False):
             plt.xlabel('Distance [µm]')
             plt.plot(xx, cc[:, i])
             plt.show()
+
+
+def tapeStripping(concentration, nbrTapeStrips, xx=None, species='human',
+                  smoothing=0.025, plot=False):
+    '''
+    This function computes a concentration profile from measurements using
+    tape strips, using heuristic formulas by Lademann.
+    concentration -     array that contains the measured concentration
+                        after each tapestrip
+    nbrTapeStrips -     array that contains the number of tapestrips at which the
+                        values in 'concentration' where measured
+    xx            -     x-positions at which smoothing spline should be evaluated,
+                        standart: depth of tapestripping
+    species       -     defines the type of skin, 'human' or 'porcine', using different
+                        formulas for skin depth, standart: human
+    smoothing     -     sets the smoothing parameter for the fitting spline, standart: 0.025
+    plot          -     plot fitted profile
+    '''
+
+    # settting correct parameters for different species, taken from Lademan papers
+    if species is 'human':
+        A, l = 107, 21  # parameters for function relating tapestrips to depth
+        SC = 12.5  # in µm, average thickness of SC of different body parts
+    elif species is 'porcine':
+        A, l = 104, 27  # function parameters
+        SC = 21  # thickness of SC in µm, for porcine ear
+    else:
+        print('\nUnknown species, choose either "human" or "porcine"\n\n')
+        sys.exit()
+
+    # differential concentration is what was in the tapestripped skin
+    diff = np.array([concentration[i] - concentration[i+1]
+                     for i in range(len(concentration)-1)])
+    # skin depth for each tape strip
+    depth = ((A - 111*np.exp(-nbrTapeStrips[1:]/l))/100)*SC
+    # setting negative values to zero, NOTE: this is because of heuristic Lademann formula...
+    depth = np.array([0 if x < 0 else x for x in depth])
+
+    # if no x-vector is given, evaluate spline along entire tapestripping depth
+    if xx is None:
+        xx = np.linspace(depth[0], depth[-1], 15)
+    spline = ip.UnivariateSpline(depth, diff, s=smoothing)
+
+    if plot:
+        x_plot = np.linspace(xx[0], xx[-1], 100)
+        plt.figure()
+        plt.plot(depth, diff, 'ko', label='ESR measurements')
+        plt.plot(x_plot, spline(x_plot), 'k--', label='Cubic Smoothing Spline')
+        plt.legend()
+        plt.xlabel('z-distance [µm]')
+        plt.ylabel('Concentration [nmol/cm$^2$]')
+        # plt.savefig('/Users/AmanuelWK/Desktop/SC_profile_disrupted.pdf', bbox_inches='tight')
+        plt.show()
+        plt.close('all')
+
+    return xx, spline(xx)

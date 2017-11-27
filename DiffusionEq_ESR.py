@@ -16,8 +16,9 @@ import sys
 startTime = time.time()
 
 
-def analysis(result, dx_dist, c0=None, xx=None, cc=None, tt=None, plot=False,
-             per=0.1, alpha=0, bc='reflective', savePath=None):
+def analysis(result, dx_dist, dfParams, c0=None, xx=None, cc=None, tt=None,
+             plot=False, per=0.1, alpha=0, deltaX=None, bc='reflective',
+             savePath=None):
     '''
     Function analyses results from ls-optimization,
     if given comparison plots of results and original concentration profiles
@@ -37,7 +38,7 @@ def analysis(result, dx_dist, c0=None, xx=None, cc=None, tt=None, plot=False,
     if plot:
         M = tt.size  # number of different profiles
 
-    N = cc[:, 0].size  # number of bins
+    N = cc[1].size  # number of bins
     n = M-1  # number of combinations for different c-profiles
     if xx is None:
         xx = np.arange(N)
@@ -51,35 +52,43 @@ def analysis(result, dx_dist, c0=None, xx=None, cc=None, tt=None, plot=False,
                       for i in range(I)])
     indices = np.argsort(Error)  # for sorting according to error
 
-    # NOTE: only three parameters for D,F in gel, SC, and sub-SC
+    # for computing D and F profiles or correct shape
+    segments = np.concatenate((np.zeros(6), np.ones(N), np.ones(6)*2)).astype(int)
     # gathering mean of F and D for best 1% of runs
-    D = np.mean(np.array([result[indices[i]].x[:3]
+    D = np.mean(np.array([result[indices[i]].x[:dfParams]
                           for i in range(nbr)]), axis=0)
-    F_pre = np.mean(np.array([result[indices[i]].x[3:]
+    F_pre = np.mean(np.array([result[indices[i]].x[dfParams:]
                               for i in range(nbr)]), axis=0)
     F = F_pre - F_pre[0]
+    D, F = fp.computeDF(D, F, shape=segments)
 
     # gathering standart deviation for top 1% of runs
-    DSTD = np.std(np.array([result[indices[i]].x[:3]
+    DSTD = np.std(np.array([result[indices[i]].x[:dfParams]
                             for i in range(nbr)]), axis=0)
-    FSTD = np.std(np.array([result[indices[i]].x[3:]
+    FSTD = np.std(np.array([result[indices[i]].x[dfParams:]
                             for i in range(nbr)]), axis=0)
+    DSTD, FSTD = fp.computeDF(DSTD, FSTD, shape=segments)
 
     # gathering best D and F for computation of profiles
-    D_best = result[indices[0]].x[:3]
-    F_best_pre = result[indices[0]].x[3:]
+    D_best = result[indices[0]].x[:dfParams]
+    F_best_pre = result[indices[0]].x[dfParams:]
     F_best = F_best_pre - F_best_pre[0]
 
     # computing full DF profile
-    segments = np.concatenate((np.zeros(6), np.ones(N-2), np.ones(6)*2)).astype(int)
-    d, f = fp.computeDF(D_best, F_best, shape=segments)
-    W = fp.WMatrixVarESR(d, f, deltaXX=dx_dist, con=True)
+    D_best, F_best = fp.computeDF(D_best, F_best, shape=segments)
+    W = fp.WMatrixVar(D_best, F_best, start=3, end=(6+N+2), deltaXX=dx_dist,
+                      con=True)
 
     # computing concentration profiles for best D and F
-    ccRes = np.array([fp.calcC(cc[:, 0], tt[j], W=W) for j in range(tt.size)]).T
+    ccRes = np.array([fp.calcC(cc[0], tt[j], W=W) for j in range(tt.size)]).T
     # -------------------------- loading results --------------------------- #
 
     # --------------------------- saving data ------------------------------- #
+    # for labeling the x-axis correctly
+    xxPlot = np.arange(cc[0].size)
+    xlabels = [[xxPlot[0], xxPlot[6], xxPlot[11], xxPlot[16], xxPlot[20], xxPlot[-1]],
+               ['%i' % -200, '%i' % xx[0], '%i' % (5*deltaX+xx[0]),
+                '%i' % (10*deltaX+xx[0]), '%i' % (14*deltaX+xx[0]), '%i' % 400]]
 
     # header for txt file in which concentration profiles will be saved
     header_cons = ''
@@ -87,12 +96,12 @@ def analysis(result, dx_dist, c0=None, xx=None, cc=None, tt=None, plot=False,
         header_cons += ('column%i: c-profile [micro_M] for t_%i = %i min\n'
                         % (i+2, i, int(t/60)))
     # saving analyzed data for best results for plotting
-    np.savetxt(savePath+'concentrationRes.txt', np.c_[xx, ccRes],
+    np.savetxt(savePath+'concentrationRes.txt', np.c_[xxPlot, ccRes],
                delimiter=',',
                header=('Numerically computed concentration profiles\n'
                        'column1: x-distance [micro_m]\n'+header_cons))
     # saving averaged DF
-    np.savetxt(savePath+'DF_avg.txt', np.c_[xx, D, DSTD, F, FSTD],
+    np.savetxt(savePath+'DF_avg.txt', np.c_[xxPlot, D, DSTD, F, FSTD],
                delimiter=',',
                header=('Diffusivity and free energy profiles from analysis\n'
                        'column1: x-distance [micro_m]\n'
@@ -101,7 +110,7 @@ def analysis(result, dx_dist, c0=None, xx=None, cc=None, tt=None, plot=False,
                        'cloumn4: average free energy [k_BT]\n'
                        'cloumn5: stdev of free energy [+/- k_BT]'))
     # saving best DF
-    np.savetxt(savePath+'DF_best.txt', np.c_[xx, D_best, F_best],
+    np.savetxt(savePath+'DF_best.txt', np.c_[xxPlot, D_best, F_best],
                delimiter=',',
                header=('Diffusivity and free energy profiles with lowest '
                        'error from analysis\n'
@@ -115,21 +124,23 @@ def analysis(result, dx_dist, c0=None, xx=None, cc=None, tt=None, plot=False,
     # --------------------------- saving data ------------------------------- #
 
     # ------------------------- plotting data ------------------------------- #
+
     if plot:
         # plotting profiles
-        ps.plotCon(xx, cc, ccRes, tt, locs=[1, 3], save=True,
-                   path=savePath)
+        ps.plotConSkin(xxPlot, cc, ccRes, tt, locs=[1, 3], save=True,
+                       path=savePath, start=6, end=-6, xticks=xlabels,
+                       ylabel='Concentration [nmol/cm$^2$]')
         # plotting averaged D and F
-        ps.plotDF(xx, D, F, D_STD=DSTD, F_STD=FSTD, save=True,
+        ps.plotDF(xxPlot, D, F, D_STD=DSTD, F_STD=FSTD, save=True,
                   style='.--', path=savePath)
         # plotting best D and F
-        ps.plotDF(xx, D_best, F_best, save=True, style='.--', path=savePath,
+        ps.plotDF(xxPlot, D_best, F_best, save=True, style='.--', path=savePath,
                   name='bestDF')
 
 
 # function for computation of residuals, given to optimization function as
 # argument to be optimized
-def resFun(df, cc, tt, deltaX=1, dx_dist=None, dx_width=None,
+def resFun(df, cc, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
            c0=None, verb=False, bc='reflective', alpha=0):
     '''
     This function computes residuals from given D and F and Concentration
@@ -137,22 +148,22 @@ def resFun(df, cc, tt, deltaX=1, dx_dist=None, dx_width=None,
     discretization width: deltaX,
     concentration at left boundary: c0,
     regularization parameter: alpha
+    dx_dist: discretization distances [for WMatrix computation]
+    dx_width: discretization bin widths [for concentration computation]
+    dfParams: number of parameters for D and F
     '''
 
-    M = cc[0, :].size  # number of concentration profiles
-    N = cc[:, 0].size  # number of bins
+    M = len(cc)  # number of concentration profiles
+    N = cc[1].size  # number of bins
 
-    # 3 parameters to be optimized for D,F in gel, SC, and sub-SC
-    dPre = df[:3]
-    fPre = df[3:]  # letting F completely free
+    # 2*3 parameters to be optimized for D,F in gel, SC, and sub-SC
+    dPre = df[:dfParams]
+    fPre = df[dfParams:]
 
-    segments = np.concatenate((np.zeros(6), np.ones(6), np.ones(6)*2)).astype(int)
+    segments = np.concatenate((np.zeros(6), np.ones(N), np.ones(6)*2)).astype(int)
     d, f = fp.computeDF(dPre, fPre, shape=segments)
 
-    W = fp.WMatrixVarESR(d, f, deltaXX=dx_dist, con=True)
-    # QUESTION: this matrix seems to be highly non-conservative, due to
-    # the extremely different values for the dx in the SC-segment!
-    # --> what can we do about this?
+    W = fp.WMatrixVar(d, f, start=3, end=(6+N+2), deltaXX=dx_dist, con=True)
 
     # testing conservation of concentration for reflective boundaries
     if abs(np.sum((np.sum(W, 0)))) > 0.01:
@@ -161,9 +172,9 @@ def resFun(df, cc, tt, deltaX=1, dx_dist=None, dx_width=None,
         sys.exit()
 
     # testing conservation of concentration
-    con = np.sum(cc[:, 0]*dx_width)
+    con = np.sum(cc[0]*dx_width)
     # compute profiles from c0 and do the same conservation check
-    ccComp = [fp.calcC(cc[:, 0], t=tt[i], W=W) for i in range(M)]
+    ccComp = [fp.calcC(cc[0], t=tt[i], W=W) for i in range(M)]
 
     if np.any(np.array([abs(np.sum(ccComp[i]*dx_width)-con)
                         for i in range(M)]) > 0.01*con):
@@ -180,23 +191,20 @@ def resFun(df, cc, tt, deltaX=1, dx_dist=None, dx_width=None,
 
     # computing residual vector
     n = M-1  # number of combinations for different c-profiles
-    RR = np.zeros((n, N))
 
-    k = 0
-    for j in range(1, M):
-        RR[k, :] = cc[:, j] - fp.calcC(cc[:, 0], (tt[j] - tt[0]), W=W)
-        k += 1
+    # value for undisrupted skin
+    c_subSC = 0.208762038  # data measured after 50 tape strips
+    # # value for disrupted skin
+    # c_subSC = 0.507484533  # data measured after 50 tape strips
 
-    # calculating vector of residuals
-    RRn = RR.reshape(RR.size)  # residual vector contains all deviations
+    # integrated amount in subSC is to be compared with numerical profiles
+    amount_subSC = c_subSC*np.sum(dx_width[-6:])
 
-    # # NOTE: now doing tykhonov regularization, but with smoothing
-    # d0 = np.roll(d, -1)  # enforcing smoothness of solution
-    # f0 = np.roll(f, -1)
-    # df0 = np.concatenate((d0[:-1], f0[:-1]))  # last value cannot be smoothed
-    # df_trunc = np.concatenate((d[:-1], f[:-1]))
-    # regularization = alpha*(df_trunc-df0)
-    # RRn = np.append(RRn, regularization)  # appended residual vector
+    RR = np.array([cc[i] - ccComp[i][6:-6] for i in range(1, M)]).T
+    RR_subSC = amount_subSC - np.sum(ccComp[1][-6:]*dx_width[-6:])  # resiudal for sub-SC layers
+    # residual vector contains all deviations
+    RRn = np.append(RR, RR_subSC)
+    RRn = RRn.reshape(RRn.size)
 
     # print out error estimate in form of standart deviation if wanted
     if (verb):
@@ -207,7 +215,7 @@ def resFun(df, cc, tt, deltaX=1, dx_dist=None, dx_width=None,
 
 
 # extra function for optimization process, written for easy parallelization
-def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, dx_dist=None,
+def optimization(DRange, FRange, dfParams, bnds, cc, tt, deltaX=1, dx_dist=None,
                  dx_width=None, c0=None, verb=0, bc='reflective', alpha=0):
     """
     Helper function for non-linear LS optimization to profiles.
@@ -222,7 +230,7 @@ def optimization(DRange, FRange, bnds, cc, tt, deltaX=1, dx_dist=None,
 
     optimize = ft.partial(resFun, cc=cc, tt=tt, deltaX=deltaX,
                           dx_dist=dx_dist, dx_width=dx_width, c0=c0,
-                          verb=funcVerb, bc=bc, alpha=alpha)
+                          verb=funcVerb, bc=bc, alpha=alpha, dfParams=dfParams)
 
     initVal = np.concatenate((DRange, FRange))
     # running freely with standart termination conditions
@@ -250,49 +258,42 @@ def main():
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
 
-    # discretization widths in stratum corneum
-    dx_SC = np.array([0.24398598,  2.01909017,  1.83566884,  3.89236138,
-                      5.48539896, 3.407229])
-    # from this: get distance between bins
-    dx_SC_dist = np.array([(dx_SC[i]+dx_SC[i-1])/2 for i in range(1, dx_SC.size)])
-    dx_SC_dist = np.append(dx_SC[0:1], dx_SC_dist)  # first bin has same dx
-
     # length of the different segments for computation
-    x_1 = 200  # length of segment 1 - gel, x_1 = 200µm
-    x_2 = np.sum(dx_SC)  # length of segment 2 - SC, from discretization vector
-    x_3 = 400 - x_2  # length of last segment 3, total sample x_2+x_3 = 400 µm
+    x_1 = 200  # width of cream/gel applied to skin sample
+    x_2 = xx[-1] - xx[0]  # length of segment 2 - SC
+    x_tot = 400  # total length of sample in µm
+    x_3 = x_tot - x_2  # size of deeper skin layers below SC
 
-    # defining different discretization widths, in segment_2 given by dx_SC
-    dx1 = (x_1-3.5*dx_SC_dist[0])/2.5  # discretization width in segment x_1
-    # NOTE: discretizing segment 1 first 4 bins each at a distance of dx1
-    # and next 2 bins with a distance between them of dx_SC[0]
-    # same for segment 3
-    dx3 = (x_3-2.5*dx_SC_dist[-1])/3.5  # discretization width in segment x_3
-    # NOTE: discretizing segment 3 first 3 bins each at a distance of dx_SC[-1]
-    # and next 3 bins with a distance between them of dx3
+    # defining different discretization widths
+    dx2 = deltaX  # discretization in SC
+    dx1 = (x_1-3.5*dx2)/2.5  # discretization width in gel
+    dx3 = (x_3-2.5*dx2)/3.5  # discretization width in sub-SC layers
 
     # vectors for distance between bins dxx_dist and bin width dxx_width
     # dxx_dist contains distance to previous bin, at first bin same dx is taken
     dxx_dist = np.concatenate((np.ones(3)*dx1,  # used for WMatrix
-                               np.ones(3)*dx_SC_dist[0], dx_SC_dist,
-                               np.ones(3)*dx_SC_dist[-1], np.ones(4)*dx3))
+                               np.ones(3+dim+3)*dx2, np.ones(4)*dx3))
     # append one dx to the end, because of W-Matrix computation (needs dx[i+1])
     # this vector contains width of individual bins
     dxx_width = np.concatenate((np.ones(2)*dx1,  # used for concentration
-                                np.ones(1)*(dx1+dx_SC[0])/2,
-                                np.ones(3)*dx_SC[0],
-                                dx_SC, np.ones(2)*dx_SC[-1],
-                                np.ones(1)*(dx3+dx_SC[-1])/2, np.ones(3)*dx3))
+                                np.ones(1)*(dx1+dx2)/2,
+                                np.ones(3+dim+2)*dx2,
+                                np.ones(1)*(dx3+dx2)/2, np.ones(3)*dx3))
 
-    xx = np.arange(dxx_width.size)  # custom x-vector for plotting
+    # building c[t = 0] profile, at beginning everything is in gel
+    c0 = 11.42
+    cc0 = np.concatenate((np.ones(6)*c0, np.zeros(dim+6)))
+    cc = [cc0, cc]  # new list with all Profiles
+    tt = np.concatenate((np.zeros(1), 4*60*60*np.ones(1))).astype(int)
+
     # ---------------- option for analysis only --------------------------- #
     if ana:
         print('\nDoing analysis only.')
         res = np.load('result.npy')
         print('Overall %i runs have been performed.' % res.size)
-        analysis(np.array(res), dx_dist=dxx_dist, dx_width=dxx_width,
-                 bc=bc_mode, c0=c0, xx=xx, cc=cc, tt=tt,
-                 alpha=alpha, plot=True, per=0.1)
+        analysis(np.array(res), dx_dist=dxx_dist, bc=bc_mode, c0=c0, xx=xx,
+                 cc=cc, tt=tt, dfParams=params, alpha=alpha, plot=True, per=0.1,
+                 deltaX=dx2)
         print('\nPlots have been made and data was extraced and saved.')
         sys.exit()
     # ---------------- option for analysis only --------------------------- #
@@ -302,7 +303,7 @@ def main():
         print('\nNow at run %i out of %i...\n' % (i+1, Runs))
         try:
             results.append(optimization(DRange=DInit[:, i],
-                                        FRange=FInit,
+                                        FRange=FInit, dfParams=params,
                                         bnds=bnds, cc=cc, tt=tt,
                                         dx_dist=dxx_dist, dx_width=dxx_width,
                                         deltaX=deltaX,
@@ -314,8 +315,8 @@ def main():
             break
 
     analysis(np.array(results), bc=bc_mode, c0=c0, xx=xx, cc=cc, tt=tt,
-             dx_dist=dxx_dist, dx_width=dxx_width, alpha=alpha, plot=True,
-             per=0.1)
+             dx_dist=dxx_dist, alpha=alpha, plot=True,
+             per=0.1, dfParams=params, deltaX=dx2)
 
     # returns number of runs in order to compute average time per run
     return Runs
