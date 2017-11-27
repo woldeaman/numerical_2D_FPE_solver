@@ -186,7 +186,8 @@ def plotConTrans(xx, cc, ccRes, c0, tt, TransIndex, layerD, save=False,
 
 # for printing c-profiles
 def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
-                deltaXX=None, start=6, end=-3, xticks=None, name='profiles'):
+                deltaXX=None, start=6, end=-3, xticks=None, name='profiles',
+                ylabel='Concentration [µM]'):
 
     M = len(cc)  # number of profiles
     N = ccRes[0, :].size  # number of bins
@@ -225,7 +226,7 @@ def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
     plt.gca().set_xlim(left=xx[0])
     plt.gca().set_xlim(right=xx[-1])
     plt.xlabel('z-distance [µm]')
-    plt.ylabel('Concentration [µM]')
+    plt.ylabel(ylabel)
     if xticks is not None:
         plt.xticks(xticks[0], xticks[1])
 
