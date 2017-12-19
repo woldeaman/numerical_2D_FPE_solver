@@ -209,27 +209,6 @@ def analysis(result, c0, xx=None, cc=None, tt=None, plot=False, per=0.1,
         ps.plotDF(xx_ext, D_mean, F_mean, style='--.', D_STD=DSTD, F_STD=FSTD,
                   save=True, path=savePath, scale='linear')
 
-    # ---------------------- regularization ------------------------------ #
-    # NOTE: this is for analysis of parameter for L2 regularization
-    RR = np.zeros((n, N))
-    k = 0
-    for j in range(M):
-        RR[k, :] = cc[:, j] - fp.calcC(cc[:, 0], (tt[j] - tt[0]), W=W,
-                                       W10=W10, c0=c0, bc='open1side')
-        k += 1
-    RRn = RR.reshape(RR.size)  # residual vector contains all deviations
-
-    residual = np.sum(RRn**2)
-    df0 = np.array([70, 25, 0, 1.5, 100, 20, 100, 20])  # optimal solution
-    df = np.concatenate((D_best_pre, F_best_preNoGauge, sigParamsDF_best))
-    regularization = np.sum((df-df0)**2)
-
-    print('\nBest solution has residuals\n|A*x-b|^2 = %f\n|x-x_0|^2 = %f' %
-          (residual, regularization))
-    np.savetxt('res_alpha=%f.txt' % alpha, np.array([residual, regularization]),
-               header='row 1: |A*x-b|^2\nrow 2: |x-x_0|^2')
-    # ---------------------- regularization ------------------------------ #
-
 
 # function for computation of residuals, given to optimization function as
 # argument to be optimized
@@ -282,13 +261,6 @@ def resFun(df, cc, xx, tt, deltaX=1, c0=None, alpha=0, verb=False):
 
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
-
-    # TODO: implement this correctly and nicely
-    # now trying tykhonov regularization
-    # its: d1, d2, f1, f2, t_D, d_D, t_F, d_F
-    df0 = np.array([70, 25, 0, 1.5, 100, 20, 100, 20])  # optimal solution
-    regFactor = alpha*(df-df0)  # regularizing term
-    RRn = np.append(RRn, regFactor)
 
     # print out error estimate in form of standart deviation if wanted
     if (verb):
