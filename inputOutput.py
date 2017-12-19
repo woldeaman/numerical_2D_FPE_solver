@@ -35,7 +35,7 @@ def startUp():
                         help='Only look at raw data and pre-processing'
                         'results. Does not start analysis.')
     parser.add_argument('-ana', dest='analysis', action='store_true',
-                        help='Do only plotting and analysis of previous run.'
+                        help='Do only plotting and analysis of previous run. '
                         'Does not start main script.')
 
     args = parser.parse_args()
