@@ -84,6 +84,11 @@ def analysis(result, dx_dist, dfParams, c0=None, xx=None, cc=None, tt=None,
     # -------------------------- loading results --------------------------- #
 
     # --------------------------- saving data ------------------------------- #
+    # for labeling the x-axis correctly
+    xxPlot = np.arange(cc[0].size)
+    xlabels = [[xxPlot[0], xxPlot[6], xxPlot[11], xxPlot[16], xxPlot[20], xxPlot[-1]],
+               ['%i' % -200, '%i' % xx[0], '%i' % (5*deltaX+xx[0]),
+                '%i' % (10*deltaX+xx[0]), '%i' % (14*deltaX+xx[0]), '%i' % 400]]
 
     # header for txt file in which concentration profiles will be saved
     header_cons = ''
@@ -91,12 +96,12 @@ def analysis(result, dx_dist, dfParams, c0=None, xx=None, cc=None, tt=None,
         header_cons += ('column%i: c-profile [micro_M] for t_%i = %i min\n'
                         % (i+2, i, int(t/60)))
     # saving analyzed data for best results for plotting
-    np.savetxt(savePath+'concentrationRes.txt', np.c_[xx, ccRes],
+    np.savetxt(savePath+'concentrationRes.txt', np.c_[xxPlot, ccRes],
                delimiter=',',
                header=('Numerically computed concentration profiles\n'
                        'column1: x-distance [micro_m]\n'+header_cons))
     # saving averaged DF
-    np.savetxt(savePath+'DF_avg.txt', np.c_[xx, D, DSTD, F, FSTD],
+    np.savetxt(savePath+'DF_avg.txt', np.c_[xxPlot, D, DSTD, F, FSTD],
                delimiter=',',
                header=('Diffusivity and free energy profiles from analysis\n'
                        'column1: x-distance [micro_m]\n'
@@ -105,7 +110,7 @@ def analysis(result, dx_dist, dfParams, c0=None, xx=None, cc=None, tt=None,
                        'cloumn4: average free energy [k_BT]\n'
                        'cloumn5: stdev of free energy [+/- k_BT]'))
     # saving best DF
-    np.savetxt(savePath+'DF_best.txt', np.c_[xx, D_best, F_best],
+    np.savetxt(savePath+'DF_best.txt', np.c_[xxPlot, D_best, F_best],
                delimiter=',',
                header=('Diffusivity and free energy profiles with lowest '
                        'error from analysis\n'
@@ -119,21 +124,18 @@ def analysis(result, dx_dist, dfParams, c0=None, xx=None, cc=None, tt=None,
     # --------------------------- saving data ------------------------------- #
 
     # ------------------------- plotting data ------------------------------- #
-    # for labeling the x-axis correctly
-    xlabels = [[xx[0], xx[6], xx[11], xx[16], xx[20], xx[-1]],
-               ['%i' % -200, '%i' % 0, '%i' % (5*deltaX), '%i' % (10*deltaX),
-                '%i' % (14*deltaX), '%i' % 400]]
+
     if plot:
         # plotting profiles
-        ps.plotConSkin(xx, cc, ccRes, tt, locs=[1, 3], save=True,
+        ps.plotConSkin(xxPlot, cc, ccRes, tt, locs=[1, 3], save=True,
                        path=savePath, start=6, end=-6, xticks=xlabels,
                        ylabel='Concentration [nmol/cm$^2$]')
         # plotting averaged D and F
-        ps.plotDF(xx, D, F, D_STD=DSTD, F_STD=FSTD, save=True,
+        ps.plotDF(xxPlot, D, F, D_STD=DSTD, F_STD=FSTD, save=True, xticks=xlabels,
                   style='.--', path=savePath)
         # plotting best D and F
-        ps.plotDF(xx, D_best, F_best, save=True, style='.--', path=savePath,
-                  name='bestDF')
+        ps.plotDF(xxPlot, D_best, F_best, save=True, style='.--', path=savePath,
+                  name='bestDF', xticks=xlabels)
 
 
 # function for computation of residuals, given to optimization function as
@@ -172,6 +174,7 @@ def resFun(df, cc, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
     # testing conservation of concentration
     con = np.sum(cc[0]*dx_width)
     # compute profiles from c0 and do the same conservation check
+    # TODO: use computation for const c0 BC and add release rate vector
     ccComp = [fp.calcC(cc[0], t=tt[i], W=W) for i in range(M)]
 
     if np.any(np.array([abs(np.sum(ccComp[i]*dx_width)-con)
@@ -189,10 +192,17 @@ def resFun(df, cc, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
 
     # computing residual vector
     n = M-1  # number of combinations for different c-profiles
-    c_subSC = 0.208762038  # summed concentration in sub-SC after 4h
+
+    # # value for undisrupted skin
+    # c_subSC = 0.208762038  # data measured after 50 tape strips
+    # value for disrupted skin
+    c_subSC = 0.507484533  # data measured after 50 tape strips
+
+    # integrated amount in subSC is to be compared with numerical profiles
+    amount_subSC = c_subSC*np.sum(dx_width[-6:])
 
     RR = np.array([cc[i] - ccComp[i][6:-6] for i in range(1, M)]).T
-    RR_subSC = c_subSC - np.sum(ccComp[1][-6:])  # resiudal for sub-SC layers
+    RR_subSC = amount_subSC - np.sum(ccComp[1][-6:]*dx_width[-6:])  # resiudal for sub-SC layers
     # residual vector contains all deviations
     RRn = np.append(RR, RR_subSC)
     RRn = RRn.reshape(RRn.size)
@@ -249,9 +259,11 @@ def main():
     bnds = (np.concatenate((bndsDLower, bndsFLower)),
             np.concatenate((bndsDUpper, bndsFUpper)))
 
+    # TODO: change this to dimension of Lohan Experiments
+
     # length of the different segments for computation
     x_1 = 200  # width of cream/gel applied to skin sample
-    x_2 = np.max(xx)  # length of segment 2 - SC
+    x_2 = xx[-1] - xx[0]  # length of segment 2 - SC
     x_tot = 400  # total length of sample in µm
     x_3 = x_tot - x_2  # size of deeper skin layers below SC
 
@@ -276,8 +288,6 @@ def main():
     cc0 = np.concatenate((np.ones(6)*c0, np.zeros(dim+6)))
     cc = [cc0, cc]  # new list with all Profiles
     tt = np.concatenate((np.zeros(1), 4*60*60*np.ones(1))).astype(int)
-    # custom xx-vector for plotting
-    xx = np.arange(cc0.size)
 
     # ---------------- option for analysis only --------------------------- #
     if ana:

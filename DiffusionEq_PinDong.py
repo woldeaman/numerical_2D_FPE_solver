@@ -131,11 +131,11 @@ def analysis(result, dx_dist, dfParams, c0=None, xx=None, cc=None, tt=None,
                        path=savePath, start=6, end=-6, xticks=xlabels,
                        ylabel='Concentration [nmol/cm$^2$]')
         # plotting averaged D and F
-        ps.plotDF(xxPlot, D, F, D_STD=DSTD, F_STD=FSTD, save=True,
+        ps.plotDF(xxPlot, D, F, D_STD=DSTD, F_STD=FSTD, save=True, xticks=xlabels,
                   style='.--', path=savePath)
         # plotting best D and F
         ps.plotDF(xxPlot, D_best, F_best, save=True, style='.--', path=savePath,
-                  name='bestDF')
+                  name='bestDF', xticks=xlabels)
 
 
 # function for computation of residuals, given to optimization function as
@@ -192,10 +192,10 @@ def resFun(df, cc, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
     # computing residual vector
     n = M-1  # number of combinations for different c-profiles
 
-    # value for undisrupted skin
-    c_subSC = 0.208762038  # data measured after 50 tape strips
-    # # value for disrupted skin
-    # c_subSC = 0.507484533  # data measured after 50 tape strips
+    # # value for undisrupted skin
+    # c_subSC = 0.208762038  # data measured after 50 tape strips
+    # value for disrupted skin
+    c_subSC = 0.507484533  # data measured after 50 tape strips
 
     # integrated amount in subSC is to be compared with numerical profiles
     amount_subSC = c_subSC*np.sum(dx_width[-6:])
