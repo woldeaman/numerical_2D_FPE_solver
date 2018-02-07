@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import csv
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import scipy.interpolate as ip
 import scipy.signal as sg
 import argparse as ap
@@ -131,8 +132,10 @@ def startUp():
               ' data for %2.f minutes' % ((dt, (data[0, :].size-2)*dt/60)))
 
         # plotting profiles
-        plt.plot(xx_exp, cc_exp, '--', label='original')
-        plt.plot(xx, cc, '-', label='smoothed')
+        colors = [cm.jet(x) for x in np.linspace(0, 1, tt.size)]  # creating colormap
+        for c_exp, c_smooth, c in zip(cc_exp.T, cc.T, colors):
+            plt.plot(xx_exp, c_exp, '--', c=c)
+            plt.plot(xx, c_smooth, '-', c=c)
         plt.show()
         sys.exit()
 
