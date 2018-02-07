@@ -121,7 +121,7 @@ def startUp():
         # pre processing of profiles
         # filtering and setting negative c-values to zero
         print('\nDoing pre-processing...')
-        xx, cc = preProcessing(xx_exp, cc_exp, order=5)
+        xx, cc = preProcessing(xx_exp, cc_exp, window=5, order=3)
         np.savetxt('preProcessedProfiles.txt', np.c_[xx, cc], delimiter=',',
                    header='Profiles were smoothed using Savitzky-Golay filter'
                    ' \nCloumn 1: x-distance [micro meters]'
@@ -228,7 +228,7 @@ def preProcessing(xx, cc, order=3, window=None, bins=100):
     filtered = np.array([sg.savgol_filter(
         profiles[:, i], window, order, mode='nearest')
                          for i in range(profiles[0, :].size)]).T
-    interpolated = [ip.UnivariateSpline(xx, filtered[:, i], s=0.5)
+    interpolated = [ip.UnivariateSpline(xx, filtered[:, i], s=0)
                     for i in range(filtered[0, :].size)]
     xs = np.linspace(xx[0], xx[-1], bins)
     profiles = np.array([interpolated[i](xs)
