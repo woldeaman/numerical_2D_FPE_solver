@@ -274,9 +274,10 @@ def main():
 
     # lenght of the different segments for computation
     x_tot = 1500  # total length of system in µm
-    x_2 = np.max(xx)  # length of segment 2, x_2 = 150 µm
-    x_3 = 180 - x_2  # end of system is at x = 180µm, lengthx of x_3 = 30 µm
-    x_1 = x_tot - (x_2 + x_3)  # length of segment 1 x_1 = 1320 µm
+    x_2 = np.max(xx)  # length of segment 2
+    # no segment 3 in this case, no extrapolation neccessary
+    # x_3 = 180 - x_2  # end of system is at x = 180µm, lengthx of x_3 = 30 µm
+    x_1 = x_tot - x_2  # length of segment 1 x_1
 
     # defining different discretization widths
     dx2 = deltaX  # in segment 2 and segment 3
