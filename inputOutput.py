@@ -72,8 +72,13 @@ def startUp():
     print('Set temporal resolution, supply dt in seconds:')
     dt = int(sys.stdin.readline())
 
-    print('Choose profiles for analysis (supply timepoints in seconds):')
-    tt = np.array([int(nbr) for nbr in sys.stdin.readline().split()])
+    print('Choose profiles for analysis (supply timepoints in seconds,'
+          '"all" means all profiles will be analyzed):')
+    answer = input()
+    if answer in "all":
+        tt = "all"
+    else:
+        tt = np.array([int(nbr) for nbr in sys.stdin.readline().split()])
 
     print('Should profiles be pre-processed? If yes, profiles will be '
           'filtered using Savitzky-Golay. [yes/no]:')
@@ -104,8 +109,13 @@ def startUp():
         except ValueError:
             data = readData(args.path, sep=' ')
     xx_exp = data[:, 0]  # first column assumed to be distance vector
+
     # now reading profiles based on input for different timepoints
-    cc_exp = np.array([data[:, int(t/dt + 1)] for t in tt]).T
+    if tt in "all":
+        cc_exp = np.array(data[:, 1:])
+        tt = np.arange(0, cc_exp[0, :].size*dt, dt)
+    else:
+        cc_exp = np.array([data[:, int(t/dt + 1)] for t in tt]).T
 
     if do_pre:
         # pre processing of profiles
