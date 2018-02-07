@@ -111,11 +111,6 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
 
     # computing concentration profiles for best D and F
     ccRes = np.array([fp.calcC(cc[0], tt[j], W=W, bc=bc) for j in range(M)]).T
-    # computing smoothed profiles as for residuals
-    cc_avg = np.array([np.array([np.average([ccRes[i, j], ccRes[i+1, j]]) if i == 0 else
-                       np.average([ccRes[i-1, j], ccRes[i, j]]) if i == ccRes[:, j].size-1
-                       else np.average([ccRes[i-1, j], ccRes[i, j], ccRes[i+1, j]])
-                       for i in range(ccRes[:, j].size)]) for j in range(ccRes[0, :].size)]).T
     # -------------------------- loading results --------------------------- #
 
     # --------------------------- saving data ------------------------------- #
@@ -155,21 +150,21 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
 
     # ------------------------- plotting data ------------------------------- #
     # for labeling the x-axis correctly
-    xlabels = [[xx[0], xx[6], xx[11], xx[16], xx[21], xx[-1]],
-               [-1500, 0, 50, 100, 150, 180]]
+    xlabels = [[xx[0]]+[x for x in xx[6::5]],
+               [-1500]+[i*50 for i in range(xx[6::5].size)]]
     if plot:
         # plotting profiles
         ps.plotConSkin(xx, cc, ccRes, tt, locs=[1, 3], save=True, path=savePath,
-                       name='profiles_raw', xticks=xlabels)
-        # plot smoothed profiles
-        ps.plotConSkin(xx, cc, cc_avg, tt, locs=[1, 3], save=True,
-                       path=savePath, name='profiles_smoothed', xticks=xlabels)
-
+                       end=None, xticks=xlabels)
         # plotting averaged D and F
         ps.plotDF(xx, D_mean, F_mean, D_STD=DSTD, F_STD=FSTD, save=True,
                   style='.--', path=savePath, xticks=xlabels)
         ps.plotDF(xx, D_best, F_best, save=True, style='.--', name='bestDF',
                   path=savePath, xticks=xlabels)
+
+    # print results for source term
+    # k = result[indices[0]].x[-1]
+    # print('Source term for laser depletion determined as: %.2f [con/s]' % float(k/10))
 
 
 # function for computation of residuals, given to optimization function as
@@ -198,6 +193,7 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
 
     # computing sigmoidal d and f profiles
     t_sig, d_sig = df[4], df[5]
+    # k = df[6]  # additional parameter to fit source term
     D = np.array([fp.sigmoidalDF(d, t_sig, d_sig, x) for x in xx])
     F = np.array([fp.sigmoidalDF(f, t_sig, d_sig, x) for x in xx])
     # now keeping fixed D, F in first 6 bins
@@ -237,13 +233,11 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
     # computing residual vector
     n = M-1  # number of combinations for different c-profiles
 
-    # NOTE: compare only averaged c_num to experimental values
-    cc_avg = [np.array([np.average([ccComp[j][i], ccComp[j][i+1]]) if i == 0 else
-                       np.average([ccComp[j][i-1], ccComp[j][i]]) if i == ccComp[j].size-1
-                       else np.average([ccComp[j][i-1], ccComp[j][i], ccComp[j][i+1]])
-                       for i in range(ccComp[j].size)]) for j in range(len(ccComp))]
+    # NOTE: adding additional source term in bulk, laser light depletion
+    # only substract concentrations in bulk, first 21 bins, until 200µm
+    # source_term = np.concatenate((np.ones(21), np.zeros(cc[1].size-21)*k))
 
-    RR = np.array([cc[j] - cc_avg[j][6:-3] for j in range(1, M)]).T
+    RR = np.array([cc[j] - ccComp[j][6:] for j in range(1, M)]).T
 
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
@@ -291,9 +285,8 @@ def main():
     # ------------------------- discretization ------------------------ #
     # lenght of the different segments for computation
     x_tot = 1500  # total length of system in µm
-    x_2 = np.max(xx)  # length of segment 2, x_2 = 150 µm
-    x_3 = 180 - x_2  # end of system is at x = 180µm, lengthx of x_3 = 30 µm
-    x_1 = x_tot - (x_2 + x_3)  # length of segment 1 x_1 = 1320 µm
+    x_2 = np.max(xx)  # length of segment 2
+    x_1 = x_tot - x_2  # length of segment 1 x_1 = 1320 µm
 
     # defining different discretization widths
     dx2 = deltaX  # in segment 2 and segment 3
@@ -306,22 +299,18 @@ def main():
     # vectors for distance between bins dxx_dist and bin width dxx_width
     # dxx_dist contains distance to previous bin, at first bin same dx is taken
     dxx_dist = np.concatenate((np.ones(4)*dx1,  # used for WMatrix
-                               np.ones(2+dim+4)*dx2))
+                               np.ones(2+dim+1)*dx2))
     # this vector contains width of individual bins
     dxx_width = np.concatenate((np.ones(3)*dx1, np.ones(1)*(dx1+dx2)/2,
-                                np.ones(2+dim+3)*dx2))  # used for concentration
+                                np.ones(2+dim)*dx2))  # used for concentration
     # NOTE:
     # dxx_dist has one element more than dxx_width because it for WMatrix
     # computation dx at i+1 is necccessary --> needed for last bin too
     # ------------------------- discretization ------------------------ #
 
-    # NOTE: building extrapolated c0 profile, assume c0 const. in bulk
-    c_const = cc[0, -1]  # take first value of last profile as c0
-    c0 = np.array([20.43270674, 20.39872678, 20.20967943, 19.82748853,
-                   19.21407792, 18.33137147, 17.14129302, 15.6057664,
-                   13.72638617, 11.66342956, 9.61684452, 7.78657898, 6.32955,
-                   5.23055121, 4.43134534, 3.87369514, 3.49936335, 3.25011271,
-                   3.06770597])
+    # NOTE: building c0 profile, assume c0 const. in bulk
+    c_const = cc[0, 0]  # normalized to one
+    c0 = cc[:, 0]
     c0 = np.concatenate((np.ones(6)*c_const, c0))
     cc = [c0] + [cc[:, i] for i in range(1, cc[0, :].size)]  # now with c0
 
@@ -342,6 +331,8 @@ def main():
     DInit = (np.random.rand(2, Runs)*DBound)
     # order is [t, d], set boundary initially at x = 50
     tdInit = np.array([50, deltaX*3])
+    # source_k_init = np.zeros(1)  # fit additonal source term
+    # k_bndsLower, k_bndsUpper = np.zeros(1), np.ones(1)*0.2  # ranging between no depletion and all change is depletion
 
     bnds = (np.concatenate((bndsDLower, bndsFLower, tdBoundsLower)),
             np.concatenate((bndsDUpper, bndsFUpper, tdBoundsUpper)))
