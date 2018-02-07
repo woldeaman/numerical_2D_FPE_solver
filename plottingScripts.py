@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib as mpl
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import numpy as np
 import sys
 
@@ -204,8 +206,13 @@ def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
     l2s = []
     lines = np.linspace(0, 1, M)
     colors = [cm.jet(x) for x in lines]
+    # Set the colormap and norm
+    cmap = cm.jet
+    norm = mpl.colors.Normalize(vmin=tt[0]/60, vmax=tt[-1]/60)
+    scalarMap = cm.ScalarMappable(norm=norm, cmap=cmap)
+    scalarMap.set_array(tt/60)  # mapping colors to time in minutes
 
-    plt.figure()
+    fig = plt.figure()
     for j in range(M):
         if j == 0:
             l1, = plt.plot(xx, cc[j], '--', color=colors[j])
@@ -219,16 +226,21 @@ def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
             l2, = plt.plot(xx, ccRes[:, j], '-', color=colors[j])
             l2s.append([l2])
     # plotting two legends, for color and linestyle
-    legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=locs[0])
-    plt.legend([l[0] for l in l1s], ["%d min" % (tt[i]/60)
-                                     for i in range(tt.size)], loc=locs[1])
-    plt.gca().add_artist(legend1)
+    plt.legend([l1, l2], ["Experiment", "Numerical"], loc=locs[1],
+               frameon=False)
     plt.gca().set_xlim(left=xx[0])
     plt.gca().set_xlim(right=xx[-1])
     plt.xlabel('z-distance [µm]')
     plt.ylabel(ylabel)
+
     if xticks is not None:
         plt.xticks(xticks[0], xticks[1])
+
+    # place colorbar in inset in current axis
+    fig.tight_layout()
+    inset = inset_axes(plt.gca(), width="40%", height="3%", loc=locs[0])
+    cb1 = plt.colorbar(scalarMap, cax=inset, cmap=cmap, norm=norm, orientation='horizontal')
+    cb1.set_label('Time [min]')
 
     if save:
         plt.savefig(path+'%s.pdf' % name, bbox_inches='tight')
