@@ -280,7 +280,7 @@ def main():
     x_1 = x_tot - x_2  # length of segment 1 x_1
 
     # defining different discretization widths
-    dx2 = deltaX  # in segment 2 and segment 3
+    dx2 = deltaX  # in segment 2
     dx1 = (x_1-2.5*dx2)/3.5  # discretization in segment x_1
     # NOTE:
     # discretizing segment 1 first 4 bins each at a distance of dx1
@@ -290,29 +290,18 @@ def main():
     # vectors for distance between bins dxx_dist and bin width dxx_width
     # dxx_dist contains distance to previous bin, at first bin same dx is taken
     dxx_dist = np.concatenate((np.ones(4)*dx1,  # used for WMatrix
-                               np.ones(2+dim+4)*dx2))
+                               np.ones(2+dim+1)*dx2))
     # this vector contains width of individual bins
     dxx_width = np.concatenate((np.ones(3)*dx1, np.ones(1)*(dx1+dx2)/2,
-                                np.ones(2+dim+3)*dx2))  # used for concentration
+                                np.ones(2+dim)*dx2))  # used for concentration
     # NOTE:
     # dxx_dist has one element more than dxx_width because it for WMatrix
     # computation dx at i+1 is necccessary --> needed for last bin too
 
-    # NOTE: building c0 profile, extrapolated and assume c0 const. in bulk
-    c_const = cc[0, -1]  # take first value of last profile as c0
-    # overriding c0 profile with extrapolated values for last three bins
-    c0 = np.array([20.43270674, 20.39872678, 20.20967943, 19.82748853,
-                   19.21407792, 18.33137147, 17.14129302, 15.6057664,
-                   13.72638617, 11.66342956, 9.61684452, 7.78657898, 6.32955,
-                   5.23055121, 4.43134534, 3.87369514, 3.49936335, 3.25011271,
-                   3.06770597])
-    c0 = np.concatenate((np.ones(6)*c_const, c0))
-    cc = [c0] + [cc[:, i] for i in range(1, cc[0, :].size)]  # now with c0
-
     # overriding bounds for custom set of parameters
     DBound = 1000
     FBound = 20
-    params = 1+dim+3  # full DF profile with additiontal DF for extra bins (const. in bulk)
+    params = 1+dim  # full DF profile with additiontal DF for extra bins (const. in bulk)
 
     bndsDUpper = np.ones(params)*DBound
     bndsFUpper = np.ones(params)*FBound
