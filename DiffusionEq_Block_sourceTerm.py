@@ -60,7 +60,7 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     F_preNoGauge = np.mean(np.array([result[indices[i]].x[dfParams:dfParams*2]
                                      for i in range(nbr)]), axis=0)
     F_pre = F_preNoGauge - F_preNoGauge[0]
-    t_mean, d_mean = np.mean(np.array([result[indices[i]].x[dfParams*2:]
+    t_mean, d_mean = np.mean(np.array([result[indices[i]].x[dfParams*2:dfParams*2+2]
                                        for i in range(nbr)]), axis=0)
     D_mean_pre = np.array([fp.sigmoidalDF(D_pre, t_mean,
                                           d_mean, x) for x in xx_DF])
@@ -70,6 +70,11 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     segments = np.concatenate((np.zeros(6), np.arange(D_mean_pre.size))).astype(int)
     # now keeping fixed D, F in first 6 bins
     D_mean, F_mean = fp.computeDF(D_mean_pre, F_mean_pre, shape=segments)
+    # gathering averaged source terms and stdev
+    sources_avg = np.mean(np.array([result[indices[i]].x[dfParams*2+2:]
+                                    for i in range(nbr)]), axis=0)
+    sources_std = np.std(np.array([result[indices[i]].x[dfParams*2+2:]
+                                   for i in range(nbr)]), axis=0)
 
     # gathering standart deviation for top x% of runs
     # computed from gauß errorpropagation for errors of D1, D2 or F1, F2
@@ -99,11 +104,13 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     D_best_pre = result[indices[0]].x[:dfParams]
     F_best_preNoGauge = result[indices[0]].x[dfParams:dfParams*2]
     F_best_pre = F_best_preNoGauge - F_best_preNoGauge[0]
-    t_best, d_best = result[indices[0]].x[dfParams*2:]
+    t_best, d_best = result[indices[0]].x[dfParams*2:dfParams*2+2]
     D_best_pre = np.array([fp.sigmoidalDF(D_best_pre, t_best, d_best, x) for x in xx_DF])
     F_best_pre = np.array([fp.sigmoidalDF(F_best_pre, t_best, d_best, x) for x in xx_DF])
     # now keeping fixed D, F in first 6 bins
     D_best, F_best = fp.computeDF(D_best_pre, F_best_pre, shape=segments)
+    # best source terms
+    sources_best = result[indices[0]].x[dfParams*2+2:]
 
     # computing rate matrix
     W = fp.WMatrixVar(D_best, F_best,  start=4, end=None, deltaXX=dx_dist,
@@ -111,6 +118,12 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
 
     # computing concentration profiles for best D and F
     ccRes = np.array([fp.calcC(cc[0], tt[j], W=W, bc=bc) for j in range(M)]).T
+    # NOTE: adding source source terms
+    source_terms = [np.concatenate((np.zeros(6), np.ones(22)*k, np.zeros(cc[1].size-22)))
+                    for k in sources_best]
+    ccRes = np.array([ccRes[:, j] if j == 0 else
+                      ccRes[:, j] - source_terms[j-1] for j in range(M)]).T
+
     # -------------------------- loading results --------------------------- #
 
     # --------------------------- saving data ------------------------------- #
@@ -163,8 +176,11 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
                   path=savePath, xticks=xlabels)
 
     # print results for source term
-    # k = result[indices[0]].x[-1]
-    # print('Source term for laser depletion determined as: %.2f [con/s]' % float(k/10))
+    print('Source term for laser depletion average: [dK/dt]')
+    print(sources_avg/tt[1:], "+/-")
+    print(sources_std/tt[1:])
+    print('Source term for laser depletion best: [dK/dt]')
+    print(sources_best/tt[1:])
 
 
 # function for computation of residuals, given to optimization function as
@@ -193,7 +209,7 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
 
     # computing sigmoidal d and f profiles
     t_sig, d_sig = df[4], df[5]
-    # k = df[6]  # additional parameter to fit source term
+    k_i = df[6:]  # additional parameters to fit source term
     D = np.array([fp.sigmoidalDF(d, t_sig, d_sig, x) for x in xx])
     F = np.array([fp.sigmoidalDF(f, t_sig, d_sig, x) for x in xx])
     # now keeping fixed D, F in first 6 bins
@@ -234,10 +250,11 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
     n = M-1  # number of combinations for different c-profiles
 
     # NOTE: adding additional source term in bulk, laser light depletion
-    # only substract concentrations in bulk, first 21 bins, until 200µm
-    # source_term = np.concatenate((np.ones(21), np.zeros(cc[1].size-21)*k))
+    # only substract concentrations in bulk, first 22 bins, until 210µm
+    source_terms = [np.concatenate((np.ones(22)*k, np.zeros(cc[1].size-22)))
+                    for k in k_i]
 
-    RR = np.array([cc[j] - ccComp[j][6:] for j in range(1, M)]).T
+    RR = np.array([cc[j] - (ccComp[j][6:] - source_terms[j-1]) for j in range(1, M)]).T
 
     # calculating vector of residuals
     RRn = RR.reshape(RR.size)  # residual vector contains all deviations
@@ -251,8 +268,8 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
 
 
 # extra function for optimization process, written for easy parallelization
-def optimization(DRange, FRange, tdRange, bnds, cc, xx, tt, dfParams=None,
-                 deltaX=1, c0=None, dx_dist=None, dx_width=None,
+def optimization(DRange, FRange, tdRange, sourceRange, bnds, cc, xx, tt,
+                 dfParams=None, deltaX=1, c0=None, dx_dist=None, dx_width=None,
                  verb=0, bc='reflective', alpha=0):
     """
     Helper function for non-linear LS optimization to profiles.
@@ -269,7 +286,7 @@ def optimization(DRange, FRange, tdRange, bnds, cc, xx, tt, dfParams=None,
                           bc=bc, dx_dist=dx_dist, dx_width=dx_width,
                           verb=funcVerb, alpha=alpha, dfParams=dfParams)
 
-    initVal = np.concatenate((DRange, FRange, tdRange))
+    initVal = np.concatenate((DRange, FRange, tdRange, sourceRange))
     # running freely with standart termination conditions
     result = op.least_squares(optimize, initVal, bounds=bnds,
                               max_nfev=None, verbose=scpVerb)
@@ -331,11 +348,13 @@ def main():
     DInit = (np.random.rand(2, Runs)*DBound)
     # order is [t, d], set boundary initially at x = 50
     tdInit = np.array([50, deltaX*3])
-    # source_k_init = np.zeros(1)  # fit additonal source term
-    # k_bndsLower, k_bndsUpper = np.zeros(1), np.ones(1)*0.2  # ranging between no depletion and all change is depletion
+    # NOTE: introducing source term here
+    source_k_init = np.zeros(tt.size-1)  # fit additonal source term for each time step
+    k_bndsLower = np.zeros(source_k_init.size)  # ranging between no depletion and all change is depletion
+    k_bndsUpper = np.ones(source_k_init.size)*0.2
 
-    bnds = (np.concatenate((bndsDLower, bndsFLower, tdBoundsLower)),
-            np.concatenate((bndsDUpper, bndsFUpper, tdBoundsUpper)))
+    bnds = (np.concatenate((bndsDLower, bndsFLower, tdBoundsLower, k_bndsLower)),
+            np.concatenate((bndsDUpper, bndsFUpper, tdBoundsUpper, k_bndsUpper)))
 
     # custom x-vector, only for analysis and plotting
     xx = np.arange(c0.size)
@@ -359,7 +378,7 @@ def main():
     for i in range(Runs):
         print('\nNow at run %i out of %i...\n' % (i+1, Runs))
         try:
-            results.append(optimization(DRange=DInit[:, i],
+            results.append(optimization(DRange=DInit[:, i], sourceRange=source_k_init,
                                         FRange=FInit, tdRange=tdInit,
                                         dfParams=params, dx_dist=dxx_dist,
                                         dx_width=dxx_width, bnds=bnds, cc=cc,
