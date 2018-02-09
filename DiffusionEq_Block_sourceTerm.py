@@ -350,7 +350,7 @@ def main():
     tdInit = np.array([50, deltaX*3])
     # NOTE: introducing source term here
     source_k_init = np.zeros(tt.size-1)  # fit additonal source term for each time step
-    k_bndsLower = np.zeros(source_k_init.size)  # ranging between no depletion and all change is depletion
+    k_bndsLower = -np.ones(source_k_init.size)*0.2  # ranging between depletion and increase
     k_bndsUpper = np.ones(source_k_init.size)*0.2
 
     bnds = (np.concatenate((bndsDLower, bndsFLower, tdBoundsLower, k_bndsLower)),
