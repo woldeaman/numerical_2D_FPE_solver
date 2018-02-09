@@ -75,10 +75,10 @@ def startUp():
     print('Choose profiles for analysis (supply timepoints in seconds,'
           '"all" means all profiles will be analyzed):')
     answer = input()
-    if answer in "all":
+    if "all" in answer:
         tt = "all"
     else:
-        tt = np.array([int(nbr) for nbr in sys.stdin.readline().split()])
+        tt = np.array([int(nbr) for nbr in answer.split()])
 
     print('Should profiles be pre-processed? If yes, profiles will be '
           'filtered using Savitzky-Golay. [yes/no]:')
@@ -111,7 +111,7 @@ def startUp():
     xx_exp = data[:, 0]  # first column assumed to be distance vector
 
     # now reading profiles based on input for different timepoints
-    if tt in "all":
+    if "all" in tt:
         cc_exp = np.array(data[:, 1:])
         tt = np.arange(0, cc_exp[0, :].size*dt, dt)
     else:
