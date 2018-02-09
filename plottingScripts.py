@@ -187,7 +187,7 @@ def plotConTrans(xx, cc, ccRes, c0, tt, TransIndex, layerD, save=False,
 
 
 # for printing c-profiles
-def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
+def plotConSkin(xx, cc, ccRes, tt, locs=[0, 2], save=False, path=None,
                 deltaXX=None, start=6, end=-3, xticks=None, name='profiles',
                 ylabel='Concentration [µM]'):
 
@@ -226,7 +226,7 @@ def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
             l2, = plt.plot(xx, ccRes[:, j], '-', color=colors[j])
             l2s.append([l2])
     # plotting two legends, for color and linestyle
-    plt.legend([l1, l2], ["Experiment", "Numerical"], loc=locs[1],
+    plt.legend([l1, l2], ["Experiment", "Numerical"], loc=locs[0],
                frameon=False)
     plt.gca().set_xlim(left=xx[0])
     plt.gca().set_xlim(right=xx[-1])
@@ -238,8 +238,9 @@ def plotConSkin(xx, cc, ccRes, tt, locs=[1, 2], save=False, path=None,
 
     # place colorbar in inset in current axis
     fig.tight_layout()
-    inset = inset_axes(plt.gca(), width="40%", height="3%", loc=locs[0])
-    cb1 = plt.colorbar(scalarMap, cax=inset, cmap=cmap, norm=norm, orientation='horizontal')
+    # TODO: think about position of colorbar
+    # inset = inset_axes(plt.gca(), width="40%", height="3%", loc=locs[0])
+    cb1 = plt.colorbar(scalarMap, cmap=cmap, norm=norm, orientation='vertical')
     cb1.set_label('Time [min]')
 
     if save:
