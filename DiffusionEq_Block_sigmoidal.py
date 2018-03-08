@@ -309,7 +309,7 @@ def main():
     # ------------------------- discretization ------------------------ #
 
     # NOTE: building c0 profile, assume c0 const. in bulk
-    c_const = cc[0, 0]  # normalized to one
+    c_const = 1  # normalized to bulk concentration c0=1
     c0 = cc[:, 0]
     c0 = np.concatenate((np.ones(6)*c_const, c0))
     cc = [c0] + [cc[:, i] for i in range(1, cc[0, :].size)]  # now with c0
