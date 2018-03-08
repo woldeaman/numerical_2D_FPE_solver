@@ -106,7 +106,7 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     D_best, F_best = fp.computeDF(D_best_pre, F_best_pre, shape=segments)
 
     # computing rate matrix
-    W = fp.WMatrixVar(D_best, F_best,  start=4, end=None, deltaXX=dx_dist,
+    W = fp.WMatrixVar(D_best, F_best, start=4, end=None, deltaXX=dx_dist,
                       con=True)
 
     # computing concentration profiles for best D and F
@@ -202,7 +202,7 @@ def resFun(df, cc, xx, tt, dfParams, deltaX=1, dx_dist=None, dx_width=None,
 
     # computing matrix with variable discretization
     # start needs to be smaller than 6, because D, F is const. only there
-    W = fp.WMatrixVar(D, F,  start=4, end=None, deltaXX=dx_dist, con=True)
+    W = fp.WMatrixVar(D, F, start=4, end=None, deltaXX=dx_dist, con=True)
 
     # testing conservation of concentration for reflective boundaries
     # NOTE: Column sum does not vanish anymore for variable binning, but equally
@@ -286,7 +286,7 @@ def main():
     # lenght of the different segments for computation
     x_tot = 1500  # total length of system in µm
     x_2 = np.max(xx)  # length of segment 2
-    x_1 = x_tot - x_2  # length of segment 1 x_1 = 1320 µm
+    x_1 = x_tot - x_2  # length of segment 1
 
     # defining different discretization widths
     dx2 = deltaX  # in segment 2 and segment 3
