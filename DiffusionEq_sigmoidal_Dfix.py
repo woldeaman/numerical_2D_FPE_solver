@@ -342,7 +342,7 @@ def main():
     for i in range(Runs):
         print('\nNow at run %i out of %i...\n' % (i+1, Runs))
         try:
-            results.append(optimization(DRange=DInit[:, i], DSol=DSol,
+            results.append(optimization(DRange=DInit[i], DSol=DSol,
                                         FRange=FInit*np.ones(2), tdRange=tdInit,
                                         bnds=bnds, cc=cc, xx=xx, tt=tt,
                                         deltaX=deltaX, c0=c0, verb=verbosity,
