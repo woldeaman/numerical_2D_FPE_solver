@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # implemented fokker-planck equation in 1D for
 # # use this for matplotlib on the cluster
-# import matplotlib
-# matplotlib.use('Agg')
+import matplotlib
+matplotlib.use('Agg')
 # TODO: implement also reflective bc's with sigmoidal D and F
 import numpy as np
 import time
@@ -95,7 +95,7 @@ def analysis(result, c0, DSol=None, xx=None, cc=None, tt=None, plot=False,
         ((0.5 + sp.erf(
             (x-sigParamsDF_mean[2])/(np.sqrt(2)*sigParamsDF_mean[3]))/2) *
          FSTD_pre[1])**2) for x in xx_ext])
-    sigParamsDF_STD = np.std(np.array([result[indices[i]].x[4:]
+    sigParamsDF_STD = np.std(np.array([result[indices[i]].x[3:]
                                        for i in range(nbr)]), axis=0)
 
     # gathering best D and F for computation of profiles
@@ -291,7 +291,7 @@ def optimization(DRange, DSol, FRange, tdRange, bnds, cc, xx, tt, deltaX=1,
     optimize = ft.partial(resFun, cc=cc, xx=xx, tt=tt, deltaX=deltaX, c0=c0,
                           verb=funcVerb, alpha=alpha, DSol=DSol)
 
-    initVal = np.concatenate((DRange, FRange, tdRange))
+    initVal = np.concatenate((DRange*np.ones(1), FRange, tdRange))
     # running freely with standart termination conditions
     result = op.least_squares(optimize, initVal, bounds=bnds,
                               max_nfev=None, verbose=scpVerb)
@@ -304,7 +304,7 @@ def main():
     (bc_mode, dim, verbosity, Runs, ana, deltaX, c0, xx, cc, tt, bnds, FInit,
      DInit, alpha) = io.startUp()
 
-    DSol = 1000  # NOTE: here D_sol can be set
+    DSol = 500  # NOTE: here D_sol can be set
 
     # ---------------- option for analysis only --------------------------- #
     if ana:
