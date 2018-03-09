@@ -93,13 +93,16 @@ def plotCon(xx, cc, ccRes, tt, locs=[1, 3], colorbar=False, styles=['--', '-'],
     # mapping profiles to colormap
     lines = np.linspace(0, 1, M)
     colors = [cm.jet(x) for x in lines]
+    # Set the colormap and norm
+    cmap = cm.jet
+    norm = mpl.colors.Normalize(vmin=tt[0]/60, vmax=tt[-1]/60)
+    scalarMap = cm.ScalarMappable(norm=norm, cmap=cmap)
+    scalarMap.set_array(tt/60)  # mapping colors to time in minutes
 
-    plt.figure(0)
+    fig = plt.figure()
     for j in range(M):
         plt.gca().set_xlim(left=xx[0])
         plt.gca().set_xlim(right=xx[-1])
-        plt.xlabel('Distance [µm]')
-        plt.ylabel('Concentration [µM]')
         l1, = plt.plot(xx, cc[:, j], '--', color=colors[j])
         l1s.append([l1])
         if j > 0:
@@ -108,12 +111,15 @@ def plotCon(xx, cc, ccRes, tt, locs=[1, 3], colorbar=False, styles=['--', '-'],
             l2, = plt.plot(xx, ccRes[:, j], '-', color=colors[j])
             l2s.append([l2])
     # plotting two legends, for color and linestyle
-    # TODO: add plotting of colorbar instead of legend
-    legend1 = plt.legend([l1, l2], ["Experiment", "Numerical"], loc=locs[0])
-    plt.legend([l[0] for l in l1s], ["%.2f min" % (tt[i]/60) if tt[i] % 60 != 0
-                                     else "%i min" % int(tt[i]/60)
-                                     for i in range(tt.size)], loc=locs[1])
-    plt.gca().add_artist(legend1)
+    plt.legend([l1, l2], ["Experiment", "Numerical"], loc=locs[0])
+    plt.xlabel('z-distance [µm]')
+    plt.ylabel('Concentration [µM]')
+    # place colorbar in inset in current axis
+    fig.tight_layout()
+    # TODO: think about position of colorbar
+    # inset = inset_axes(plt.gca(), width="40%", height="3%", loc=locs[0])
+    cb1 = plt.colorbar(scalarMap, cmap=cmap, norm=norm, orientation='vertical')
+    cb1.set_label('Time [min]')
 
     if save:
         plt.savefig(path+'profiles.pdf', bbox_inches='tight')
