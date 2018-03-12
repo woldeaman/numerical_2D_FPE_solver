@@ -151,7 +151,7 @@ def analysis(result, xx_DF, dx_dist, dfParams=None, dx_width=None, c0=None,
     # ------------------------- plotting data ------------------------------- #
     # for labeling the x-axis correctly
     xlabels = [[xx[0]]+[x for x in xx[6::5]],
-               [-1500]+[i*50 for i in range(xx[6::5].size)]]
+               [-1350]+[i*50 for i in range(xx[6::5].size)]]
     if plot:
         # plotting profiles
         ps.plotConSkin(xx, cc, ccRes, tt, locs=[1, 3], save=True, path=savePath,
@@ -284,7 +284,7 @@ def main():
 
     # ------------------------- discretization ------------------------ #
     # lenght of the different segments for computation
-    x_tot = 1500  # total length of system in µm
+    x_tot = 1780  # total length of system in µm
     x_2 = np.max(xx)  # length of segment 2
     x_1 = x_tot - x_2  # length of segment 1
 
