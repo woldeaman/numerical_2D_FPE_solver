@@ -29,7 +29,7 @@ def analysis(result, dx_dist, dfParams=None, dx_width=None, c0=None,
     # ----------------- setting working parameters --------------------- #
     # saving output in current results folder in current directory
     if savePath is None:
-        savePath = os.path.join(os.getcwd(), 'results_sigmoid/')
+        savePath = os.path.join(os.getcwd(), 'results_freeDF/')
         if not os.path.exists(savePath):
             os.makedirs(savePath)
 
