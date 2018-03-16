@@ -317,8 +317,7 @@ def main():
 
     bndsDUpper = np.ones(2)*DBound
     bndsFUpper = np.ones(2)*FBound
-    # otherwise singular matrix due to vanishing D --> vanishing rates
-    bndsDLower = np.ones(2)*1E-5
+    bndsDLower = np.zeros(2)
     bndsFLower = np.ones(2)*(-FBound)
     # bounds for interface position and layer thickness zero and max x position
     # using independent parameters for F and D profiles --> 4 params
