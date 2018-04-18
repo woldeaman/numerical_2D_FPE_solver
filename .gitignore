@@ -41,6 +41,7 @@ Thumbs.db
 # jupyter notebook #
 ###################
 __pycache__
+.ipynb_checkpoints
 
 # results from analysis #
 #########################
