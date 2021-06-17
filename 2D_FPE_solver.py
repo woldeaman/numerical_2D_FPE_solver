@@ -38,7 +38,7 @@ def plotting(X, Y, F, D, tt, cc, savePath=''):
 
     for i in range(M):
         ax = fig.add_subplot(row, col, i+1, projection='3d')
-        ax.plot_surface(X, Y, cc[i], cmap=cm.coolwarm, label='Original', antialiased=True)
+        ax.plot_surface(X, Y, cc[i], label='Original', antialiased=True)
         ax.set_title('t = %i' % tt[i])
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
@@ -144,16 +144,13 @@ def main():
     X, Y = np.meshgrid(np.arange(dimY), np.arange(dimX))
 
     # setting D and F
-    D = np.ones((dimX, dimY))/10
-    # for i in range(dimX):
-        # D[:, ]
-    F = np.zeros((dimX, dimY))
-    # for i in range(dimY):
+    D = np.ones((dimX, dimY))/100  # flat diffusivity profile
+    F = np.zeros((dimX, dimY))  # flat energy landscape, normal diffusion
+    # for i in range(dimY):  # for inclined energy profile
         # F[:, i] = -np.arange(dimX)
-     # print(F)
 
     # compute profiles from given d and f
-    tt = np.array([0, 300, 600, 900])
+    tt = np.array([0, 33, 66, 100])
     
     cInput = [computeC(c0.reshape(c0.size), tt[i], D=D.reshape(D.size), F=F.reshape(F.size),
                        dimY=dimY).reshape(dimX, dimY) for i in range(tt.size)]
