@@ -146,8 +146,8 @@ def main():
     # setting D and F
     D = np.ones((dimX, dimY))/100  # flat diffusivity profile
     F = np.zeros((dimX, dimY))  # flat energy landscape, normal diffusion
-    # for i in range(dimY):  # for inclined energy profile
-        # F[:, i] = -np.arange(dimX)
+    for i in range(dimY):  # for inclined energy profile
+        F[:, i] = -np.arange(dimX)
 
     # compute profiles from given d and f
     tt = np.array([0, 10, 100, 1000])
